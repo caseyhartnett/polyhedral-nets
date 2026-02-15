@@ -220,7 +220,11 @@ export const CreateJobRequestSchema = z
     parentRevisionId: z.string().uuid().optional(),
     shapeDefinition: ShapeDefinitionSchema,
     exportFormats: z.array(ExportFormatSchema).min(1),
-    svgLayers: z.array(SvgLayerSchema).default(["cut", "score", "guide"])
+    svgLayers: z
+      .array(SvgLayerSchema)
+      .min(1)
+      .transform((layers) => Array.from(new Set(layers)))
+      .default(["cut", "score", "guide"])
   })
   .strict();
 

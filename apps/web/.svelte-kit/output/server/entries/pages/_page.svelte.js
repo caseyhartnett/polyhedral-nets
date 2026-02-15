@@ -438,8 +438,8 @@ function faceProjection2D(mesh, face) {
   const b = mesh.vertices[ids[1]];
   const c = mesh.vertices[ids[2]];
   const u = normalize(subVec(b, a));
-  const n = normalize(cross(subVec(b, a), subVec(c, a)));
-  const v = normalize(cross(n, u));
+  const n = normalize(cross$1(subVec(b, a), subVec(c, a)));
+  const v = normalize(cross$1(n, u));
   const points = ids.map((id) => {
     const p = mesh.vertices[id];
     const rel = subVec(p, a);
@@ -505,8 +505,8 @@ function sortFaceVertices(vertices, indices, normal) {
   const center = indices.map((index) => vertices[index]).reduce((acc, v2) => addVec(acc, v2), vec(0, 0, 0));
   const centroid = scaleVec(center, 1 / indices.length);
   const ref = Math.abs(normal.z) < 0.9 ? vec(0, 0, 1) : vec(0, 1, 0);
-  const u = normalize(cross(ref, normal));
-  const v = normalize(cross(normal, u));
+  const u = normalize(cross$1(ref, normal));
+  const v = normalize(cross$1(normal, u));
   const ordered = [...indices].sort((a, b) => {
     const pa = subVec(vertices[a], centroid);
     const pb = subVec(vertices[b], centroid);
@@ -518,7 +518,7 @@ function sortFaceVertices(vertices, indices, normal) {
     const p0 = vertices[ordered[0]];
     const p1 = vertices[ordered[1]];
     const p2 = vertices[ordered[2]];
-    const winding = dotVec(normalize(cross(subVec(p1, p0), subVec(p2, p1))), normal);
+    const winding = dotVec(normalize(cross$1(subVec(p1, p0), subVec(p2, p1))), normal);
     if (winding < 0) {
       ordered.reverse();
     }
@@ -535,7 +535,7 @@ function buildConvexHullFaces(vertices) {
         const a = vertices[i];
         const b = vertices[j];
         const c = vertices[k];
-        let normal = cross(subVec(b, a), subVec(c, a));
+        let normal = cross$1(subVec(b, a), subVec(c, a));
         if (Math.sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z) <= EPSILON) {
           continue;
         }
@@ -1071,7 +1071,7 @@ function buildCanonicalGeometry(def) {
 function subVec(a, b) {
   return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
-function cross(a, b) {
+function cross$1(a, b) {
   return {
     x: a.y * b.z - a.z * b.y,
     y: a.z * b.x - a.x * b.z,
@@ -1084,61 +1084,8 @@ function normalize(v) {
     return { x: 0, y: 0, z: 0 };
   return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
 }
-function projectPoint(p, yaw = -0.7, pitch = 0.45) {
-  const cy = Math.cos(yaw);
-  const sy = Math.sin(yaw);
-  const cp = Math.cos(pitch);
-  const sp = Math.sin(pitch);
-  const x1 = p.x * cy - p.y * sy;
-  const y1 = p.x * sy + p.y * cy;
-  const z1 = p.z;
-  const x2 = x1;
-  const y2 = y1 * cp - z1 * sp;
-  const z2 = y1 * sp + z1 * cp;
-  return { x: x2, y: -z2, depth: y2 };
-}
 function edgeKeyFromIndexPair(a, b) {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
-}
-function buildWireframePreview$1(def, camera = {}) {
-  const shape = buildShapeDebugModel(def);
-  const yaw = camera.yaw ?? -0.7;
-  const pitch = camera.pitch ?? 0.45;
-  const uniqueEdges = /* @__PURE__ */ new Map();
-  for (const face of shape.mesh.faces) {
-    const indices = face.vertexIndices;
-    for (let i = 0; i < indices.length; i += 1) {
-      const a = indices[i];
-      const b = indices[(i + 1) % indices.length];
-      const key = edgeKeyFromIndexPair(a, b);
-      if (!uniqueEdges.has(key)) {
-        uniqueEdges.set(key, [a, b]);
-      }
-    }
-  }
-  const rawLines = Array.from(uniqueEdges.values()).map(([aIndex, bIndex]) => {
-    const a = projectPoint(shape.mesh.vertices[aIndex], yaw, pitch);
-    const b = projectPoint(shape.mesh.vertices[bIndex], yaw, pitch);
-    return { a, b };
-  });
-  const xs = rawLines.flatMap((l) => [l.a.x, l.b.x]);
-  const ys = rawLines.flatMap((l) => [l.a.y, l.b.y]);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const width = 460;
-  const height = 320;
-  const spanX = Math.max(1, maxX - minX);
-  const spanY = Math.max(1, maxY - minY);
-  const scale = Math.min((width - 32) / spanX, (height - 32) / spanY);
-  const lines = rawLines.map((l) => ({
-    x1: 16 + (l.a.x - minX) * scale,
-    y1: 16 + (l.a.y - minY) * scale,
-    x2: 16 + (l.b.x - minX) * scale,
-    y2: 16 + (l.b.y - minY) * scale
-  }));
-  return { width, height, lines };
 }
 function toPath(points, closed = false) {
   if (points.length === 0) return "";
@@ -1178,12 +1125,46 @@ function emptyTemplate() {
     paths: []
   };
 }
-function emptyWireframe() {
+function emptySolid() {
   return {
     width: 460,
     height: 320,
-    lines: []
+    faces: []
   };
+}
+function normalizeVec(v) {
+  const mag = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+  if (mag <= 1e-9) return { x: 0, y: 0, z: 1 };
+  return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
+}
+function cross(a, b) {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x
+  };
+}
+function rotatePoint(p, yaw = -0.7, pitch = 0.45) {
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const x1 = p.x * cy - p.y * sy;
+  const y1 = p.x * sy + p.y * cy;
+  const z1 = p.z;
+  return {
+    x: x1,
+    y: y1 * cp - z1 * sp,
+    z: y1 * sp + z1 * cp
+  };
+}
+function shadeBlue(intensity) {
+  const base = { r: 37, g: 99, b: 235 };
+  const clamped = Math.max(0.42, Math.min(1.05, intensity));
+  const r = Math.round(base.r * clamped);
+  const g = Math.round(base.g * clamped);
+  const b = Math.round(base.b * clamped);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 function buildTemplatePreview(def) {
   try {
@@ -1200,16 +1181,61 @@ function buildTemplatePreview(def) {
     return emptyTemplate();
   }
 }
-function buildWireframePreview(def, camera = {}) {
+function buildSolidPreview(def, camera = {}) {
   try {
-    return buildWireframePreview$1(toShapeDefinition(def), camera);
+    const shape = buildShapeDebugModel(toShapeDefinition(def));
+    const yaw = camera.yaw ?? -0.7;
+    const pitch = camera.pitch ?? 0.45;
+    const width = 460;
+    const height = 320;
+    const rotated = shape.mesh.vertices.map((vertex) => rotatePoint(vertex, yaw, pitch));
+    const projected = rotated.map((vertex) => ({
+      x: vertex.x,
+      y: -vertex.z,
+      depth: vertex.y
+    }));
+    const xs = projected.map((point) => point.x);
+    const ys = projected.map((point) => point.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const spanX = Math.max(1, maxX - minX);
+    const spanY = Math.max(1, maxY - minY);
+    const scale = Math.min((width - 32) / spanX, (height - 32) / spanY);
+    const light = normalizeVec({ x: -0.35, y: 0.72, z: 0.6 });
+    const faces = shape.mesh.faces.map((face) => {
+      const points = face.vertexIndices.map((index) => ({
+        x: 16 + (projected[index].x - minX) * scale,
+        y: 16 + (projected[index].y - minY) * scale
+      }));
+      const a = rotated[face.vertexIndices[0]];
+      const b = rotated[face.vertexIndices[1]];
+      const c = rotated[face.vertexIndices[2]];
+      const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+      const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+      const normal = normalizeVec(cross(ab, ac));
+      const intensity = 0.48 + Math.max(0, normal.x * light.x + normal.y * light.y + normal.z * light.z) * 0.55;
+      const depth = face.vertexIndices.reduce((sum, index) => sum + projected[index].depth, 0) / face.vertexIndices.length;
+      return {
+        points,
+        fill: shadeBlue(intensity),
+        stroke: "#1d4ed8",
+        depth
+      };
+    }).sort((a, b) => a.depth - b.depth).map((face) => ({
+      points: face.points,
+      fill: face.fill,
+      stroke: face.stroke
+    }));
+    return { width, height, faces };
   } catch {
-    return emptyWireframe();
+    return emptySolid();
   }
 }
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
-    let baseSegments, normalizedPolyhedron, resolvedShapeDefinition, liveTemplate, liveWireframe, visibleHistory;
+    let baseSegments, normalizedPolyhedron, resolvedShapeDefinition, liveTemplate, liveSolid, templateTransform, visibleHistory;
     const POLYHEDRON_ALL_PRESETS = [
       "tetrahedron",
       "cube",
@@ -1316,6 +1342,11 @@ function _page($$renderer, $$props) {
     let yaw = -0.7;
     let pitch = 0.45;
     let rotating = false;
+    let templateZoom = 1;
+    let templateRotation = 0;
+    let templatePanX = 0;
+    let templatePanY = 0;
+    let templatePanning = false;
     function normalizePolyhedron(polyhedron) {
       const merged = { ...initialPolyhedron, ...polyhedron };
       const preset = POLYHEDRON_ALL_PRESETS.includes(merged.preset ?? "cube") ? merged.preset : "cube";
@@ -1339,7 +1370,8 @@ function _page($$renderer, $$props) {
       topSegments: baseSegments
     };
     liveTemplate = buildTemplatePreview(resolvedShapeDefinition);
-    liveWireframe = buildWireframePreview(resolvedShapeDefinition, { yaw, pitch });
+    liveSolid = buildSolidPreview(resolvedShapeDefinition, { yaw, pitch });
+    templateTransform = `translate(${templatePanX.toFixed(3)} ${templatePanY.toFixed(3)}) translate(${(liveTemplate.width / 2).toFixed(3)} ${(liveTemplate.height / 2).toFixed(3)}) rotate(${templateRotation.toFixed(3)}) scale(${templateZoom.toFixed(4)}) translate(${(-liveTemplate.width / 2).toFixed(3)} ${(-liveTemplate.height / 2).toFixed(3)})`;
     resolvedShapeDefinition.bottomSegments;
     resolvedShapeDefinition.topSegments;
     visibleHistory = history;
@@ -1507,17 +1539,17 @@ function _page($$renderer, $$props) {
       $$renderer2.push("<!--[!-->");
       $$renderer2.push(`<p class="muted svelte-1uha8ag">Split edges are off, so both ends use ${escape_html(baseSegments)} edges.</p>`);
     }
-    $$renderer2.push(`<!--]--> <div class="preview-dual svelte-1uha8ag"><div class="preview-pane svelte-1uha8ag"><h3 class="svelte-1uha8ag">2D Template</h3> <svg${attr("viewBox", `0 0 ${liveTemplate.width.toFixed(3)} ${liveTemplate.height.toFixed(3)}`)} role="img" aria-label="Live 2D template preview" class="svelte-1uha8ag"><!--[-->`);
+    $$renderer2.push(`<!--]--> <div class="preview-dual svelte-1uha8ag"><div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">2D Template</h3> <div class="view-controls svelte-1uha8ag"><button class="small svelte-1uha8ag" type="button" aria-label="Zoom in">+</button> <button class="small svelte-1uha8ag" type="button" aria-label="Zoom out">-</button> <button class="small svelte-1uha8ag" type="button" aria-label="Rotate left">⟲</button> <button class="small svelte-1uha8ag" type="button" aria-label="Rotate right">⟳</button> <button class="small svelte-1uha8ag" type="button">Reset</button></div></div> <svg${attr("viewBox", `0 0 ${liveTemplate.width.toFixed(3)} ${liveTemplate.height.toFixed(3)}`)} role="img" aria-label="Live 2D template preview"${attr_class("svelte-1uha8ag", void 0, { "template-panning-active": templatePanning })}><g${attr("transform", templateTransform)}><!--[-->`);
     const each_array_6 = ensure_array_like(liveTemplate.paths);
     for (let $$index_6 = 0, $$length = each_array_6.length; $$index_6 < $$length; $$index_6++) {
       let path = each_array_6[$$index_6];
       $$renderer2.push(`<path${attr("d", path.d)}${attr_class(`layer-${path.layer}`, "svelte-1uha8ag")}></path>`);
     }
-    $$renderer2.push(`<!--]--></svg></div> <div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">3D Form</h3> <button class="small svelte-1uha8ag" type="button">Reset View</button></div> <svg${attr("viewBox", `0 0 ${liveWireframe.width.toFixed(3)} ${liveWireframe.height.toFixed(3)}`)} role="img" aria-label="Live 3D wireframe preview"${attr_class("svelte-1uha8ag", void 0, { "rotating-active": rotating })}><!--[-->`);
-    const each_array_7 = ensure_array_like(liveWireframe.lines);
+    $$renderer2.push(`<!--]--></g></svg> <div class="muted svelte-1uha8ag">Drag to pan. Mouse wheel to zoom. Rotate using ⟲ / ⟳.</div></div> <div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">3D Form</h3> <button class="small svelte-1uha8ag" type="button">Reset View</button></div> <svg${attr("viewBox", `0 0 ${liveSolid.width.toFixed(3)} ${liveSolid.height.toFixed(3)}`)} role="img" aria-label="Live 3D solid preview"${attr_class("svelte-1uha8ag", void 0, { "rotating-active": rotating })}><!--[-->`);
+    const each_array_7 = ensure_array_like(liveSolid.faces);
     for (let $$index_7 = 0, $$length = each_array_7.length; $$index_7 < $$length; $$index_7++) {
-      let line = each_array_7[$$index_7];
-      $$renderer2.push(`<line${attr("x1", line.x1)}${attr("y1", line.y1)}${attr("x2", line.x2)}${attr("y2", line.y2)} class="wire-line svelte-1uha8ag"></line>`);
+      let face = each_array_7[$$index_7];
+      $$renderer2.push(`<polygon class="solid-face svelte-1uha8ag"${attr("points", face.points.map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`).join(" "))}${attr("fill", face.fill)}${attr("stroke", face.stroke)}></polygon>`);
     }
     $$renderer2.push(`<!--]--></svg> <div class="muted svelte-1uha8ag">Drag to rotate.</div></div></div> <h2>Exported SVG</h2> `);
     {

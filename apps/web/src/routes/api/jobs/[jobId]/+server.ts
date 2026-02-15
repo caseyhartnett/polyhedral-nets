@@ -1,8 +1,6 @@
-import { json } from '@sveltejs/kit';
-import { toApiUrl } from '$lib/api';
+import { toApiUrl } from '$lib/api.server';
+import { proxyJson } from '$lib/proxy';
 
 export async function GET({ params }) {
-  const response = await fetch(toApiUrl(`/v1/jobs/${params.jobId}`));
-  const data = await response.json();
-  return json(data, { status: response.status });
+  return proxyJson(toApiUrl(`/v1/jobs/${params.jobId}`));
 }

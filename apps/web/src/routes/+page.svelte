@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { buildTemplatePreview, buildWireframePreview } from '$lib/preview';
+  import { buildTemplatePreview, buildSolidPreview } from '$lib/preview';
 
   type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
   type ExportFormat = 'svg' | 'pdf' | 'stl';
@@ -239,6 +239,13 @@
   let rotating = false;
   let lastPointerX = 0;
   let lastPointerY = 0;
+  let templateZoom = 1;
+  let templateRotation = 0;
+  let templatePanX = 0;
+  let templatePanY = 0;
+  let templatePanning = false;
+  let lastTemplatePointerX = 0;
+  let lastTemplatePointerY = 0;
 
   $: baseSegments = Math.max(3, Math.floor(shapeDefinition.segments || 3));
   $: normalizedPolyhedron = normalizePolyhedron(shapeDefinition.polyhedron);
@@ -252,7 +259,12 @@
     topSegments: useSplitEdges ? Math.max(1, Math.floor(shapeDefinition.topSegments || baseSegments)) : baseSegments
   };
   $: liveTemplate = buildTemplatePreview(resolvedShapeDefinition);
-  $: liveWireframe = buildWireframePreview(resolvedShapeDefinition, { yaw, pitch });
+  $: liveSolid = buildSolidPreview(resolvedShapeDefinition, { yaw, pitch });
+  $: templateTransform = `translate(${templatePanX.toFixed(3)} ${templatePanY.toFixed(3)}) translate(${(
+    liveTemplate.width / 2
+  ).toFixed(3)} ${(liveTemplate.height / 2).toFixed(3)}) rotate(${templateRotation.toFixed(3)}) scale(${templateZoom.toFixed(
+    4
+  )}) translate(${(-liveTemplate.width / 2).toFixed(3)} ${(-liveTemplate.height / 2).toFixed(3)})`;
   $: effectiveBottomSegments = resolvedShapeDefinition.bottomSegments;
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
 
@@ -653,6 +665,54 @@
     yaw = -0.7;
     pitch = 0.45;
   }
+
+  function zoomTemplate(factor: number) {
+    templateZoom = Math.max(0.2, Math.min(8, templateZoom * factor));
+  }
+
+  function rotateTemplate(degrees: number) {
+    templateRotation += degrees;
+  }
+
+  function resetTemplateView() {
+    templateZoom = 1;
+    templateRotation = 0;
+    templatePanX = 0;
+    templatePanY = 0;
+  }
+
+  function startTemplatePan(event: PointerEvent) {
+    templatePanning = true;
+    lastTemplatePointerX = event.clientX;
+    lastTemplatePointerY = event.clientY;
+    (event.currentTarget as SVGSVGElement).setPointerCapture(event.pointerId);
+  }
+
+  function onTemplatePan(event: PointerEvent) {
+    if (!templatePanning) return;
+    const target = event.currentTarget as SVGSVGElement;
+    const rect = target.getBoundingClientRect();
+    const dxPx = event.clientX - lastTemplatePointerX;
+    const dyPx = event.clientY - lastTemplatePointerY;
+    const dx = (dxPx * liveTemplate.width) / Math.max(rect.width, 1);
+    const dy = (dyPx * liveTemplate.height) / Math.max(rect.height, 1);
+    templatePanX += dx;
+    templatePanY += dy;
+    lastTemplatePointerX = event.clientX;
+    lastTemplatePointerY = event.clientY;
+  }
+
+  function endTemplatePan(event: PointerEvent) {
+    templatePanning = false;
+    if ((event.currentTarget as SVGSVGElement).hasPointerCapture(event.pointerId)) {
+      (event.currentTarget as SVGSVGElement).releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function onTemplateWheel(event: WheelEvent) {
+    event.preventDefault();
+    zoomTemplate(event.deltaY < 0 ? 1.08 : 0.92);
+  }
 </script>
 
 <svelte:head>
@@ -974,16 +1034,34 @@
 
     <div class="preview-dual">
       <div class="preview-pane">
-        <h3>2D Template</h3>
+        <div class="preview-pane-head">
+          <h3>2D Template</h3>
+          <div class="view-controls">
+            <button class="small" type="button" on:click={() => zoomTemplate(1.2)} aria-label="Zoom in">+</button>
+            <button class="small" type="button" on:click={() => zoomTemplate(1 / 1.2)} aria-label="Zoom out">-</button>
+            <button class="small" type="button" on:click={() => rotateTemplate(-15)} aria-label="Rotate left">⟲</button>
+            <button class="small" type="button" on:click={() => rotateTemplate(15)} aria-label="Rotate right">⟳</button>
+            <button class="small" type="button" on:click={resetTemplateView}>Reset</button>
+          </div>
+        </div>
         <svg
           viewBox={`0 0 ${liveTemplate.width.toFixed(3)} ${liveTemplate.height.toFixed(3)}`}
           role="img"
           aria-label="Live 2D template preview"
+          class:template-panning-active={templatePanning}
+          on:pointerdown={startTemplatePan}
+          on:pointermove={onTemplatePan}
+          on:pointerup={endTemplatePan}
+          on:pointerleave={endTemplatePan}
+          on:wheel={onTemplateWheel}
         >
-          {#each liveTemplate.paths as path}
-            <path d={path.d} class={`layer-${path.layer}`} />
-          {/each}
+          <g transform={templateTransform}>
+            {#each liveTemplate.paths as path}
+              <path d={path.d} class={`layer-${path.layer}`} />
+            {/each}
+          </g>
         </svg>
+        <div class="muted">Drag to pan. Mouse wheel to zoom. Rotate using ⟲ / ⟳.</div>
       </div>
       <div class="preview-pane">
         <div class="preview-pane-head">
@@ -991,17 +1069,22 @@
           <button class="small" type="button" on:click={resetView}>Reset View</button>
         </div>
         <svg
-          viewBox={`0 0 ${liveWireframe.width.toFixed(3)} ${liveWireframe.height.toFixed(3)}`}
+          viewBox={`0 0 ${liveSolid.width.toFixed(3)} ${liveSolid.height.toFixed(3)}`}
           role="img"
-          aria-label="Live 3D wireframe preview"
+          aria-label="Live 3D solid preview"
           class:rotating-active={rotating}
           on:pointerdown={startRotate}
           on:pointermove={onRotate}
           on:pointerup={endRotate}
           on:pointerleave={endRotate}
         >
-          {#each liveWireframe.lines as line}
-            <line x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} class="wire-line" />
+          {#each liveSolid.faces as face}
+            <polygon
+              class="solid-face"
+              points={face.points.map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`).join(' ')}
+              fill={face.fill}
+              stroke={face.stroke}
+            />
           {/each}
         </svg>
         <div class="muted">Drag to rotate.</div>
@@ -1020,10 +1103,25 @@
 
 <style>
   :global(body) {
+    --bg-0: #1e1e1e;
+    --bg-1: #252526;
+    --card: #2d2d30;
+    --card-border: #3e3e42;
+    --panel: #252526;
+    --text: #f3f4f6;
+    --muted: #9ca3af;
+    --input-bg: #1e1e1e;
+    --input-border: #3e3e42;
+    --button: #3e3e42;
+    --button-hover: #4e4e52;
+    --button-text: #f9fafb;
+    --accent: #2563eb;
+    --accent-soft: #1d4ed8;
+    --danger: #ef4444;
     margin: 0;
     font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-    background: radial-gradient(circle at 20% 20%, #e9f4ff, #f7f3e8 45%, #efe4d4 100%);
-    color: #1f2937;
+    background: linear-gradient(160deg, var(--bg-0), var(--bg-1));
+    color: var(--text);
   }
 
   main {
@@ -1035,10 +1133,11 @@
   }
 
   .card {
-    background: rgba(255, 255, 255, 0.88);
-    border: 1px solid #e5e7eb;
+    background: var(--card);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 1rem;
+    box-shadow: 0 16px 34px rgba(4, 9, 20, 0.42);
   }
 
   .row {
@@ -1054,7 +1153,11 @@
 
   .sub {
     margin-top: 0.25rem;
-    color: #475569;
+    color: var(--muted);
+  }
+
+  a {
+    color: #93c5fd;
   }
 
   .grid {
@@ -1075,15 +1178,15 @@
   }
 
   .builder-tabs button {
-    background: #d6f0ed;
-    color: #0f4d47;
-    border: 1px solid #9ed7cf;
+    background: #3e3e42;
+    color: #d1d5db;
+    border: 1px solid #4e4e52;
   }
 
   .builder-tabs button.tab-active {
-    background: #0f766e;
+    background: var(--accent);
     color: #ffffff;
-    border-color: #0f766e;
+    border-color: var(--accent);
   }
 
   .poly-subtabs {
@@ -1094,15 +1197,15 @@
   }
 
   .poly-subtabs button {
-    background: #e8f2ff;
-    color: #194578;
-    border: 1px solid #bcd2f0;
+    background: #3e3e42;
+    color: #d1d5db;
+    border: 1px solid #4e4e52;
   }
 
   .poly-subtabs button.tab-active {
-    background: #1e4f90;
+    background: var(--accent);
     color: #ffffff;
-    border-color: #1e4f90;
+    border-color: var(--accent);
   }
 
   .formats {
@@ -1112,11 +1215,11 @@
   }
 
   .revisions-panel {
-    border: 1px solid #dbe5f0;
+    border: 1px solid var(--card-border);
     border-radius: 10px;
     padding: 0.55rem 0.65rem;
     margin-bottom: 0.75rem;
-    background: rgba(251, 252, 255, 0.8);
+    background: var(--panel);
   }
 
   .revisions-list {
@@ -1132,11 +1235,11 @@
   }
 
   .project-summary {
-    border: 1px solid #dbe5f0;
+    border: 1px solid var(--card-border);
     border-radius: 10px;
     padding: 0.55rem 0.65rem;
     margin-bottom: 0.75rem;
-    background: rgba(248, 251, 255, 0.8);
+    background: var(--panel);
   }
 
   label {
@@ -1149,22 +1252,24 @@
 
   input,
   select {
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--input-border);
     border-radius: 8px;
     padding: 0.5rem;
     font-size: 0.92rem;
+    background: var(--input-bg);
+    color: var(--text);
   }
 
   input:disabled {
-    background: #f8fafc;
-    color: #475569;
+    background: #0f1b35;
+    color: #8ea2c5;
   }
 
   button,
   .small.link {
-    border: none;
-    background: #0f766e;
-    color: white;
+    border: 1px solid #4e4e52;
+    background: var(--button);
+    color: var(--button-text);
     border-radius: 9px;
     padding: 0.62rem 0.85rem;
     font-size: 0.88rem;
@@ -1173,6 +1278,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  button:hover,
+  .small.link:hover {
+    background: var(--button-hover);
   }
 
   .small {
@@ -1186,7 +1296,7 @@
   }
 
   .error {
-    color: #b91c1c;
+    color: var(--danger);
   }
 
   .history-head {
@@ -1208,7 +1318,7 @@
     gap: 0.25rem;
     margin: 0;
     font-size: 0.78rem;
-    color: #4b5563;
+    color: var(--muted);
   }
 
   .split-toggle {
@@ -1227,7 +1337,7 @@
   }
 
   .history-item {
-    border: 1px solid #dbe5f0;
+    border: 1px solid var(--card-border);
     border-radius: 10px;
     padding: 0.6rem;
     display: flex;
@@ -1236,7 +1346,7 @@
   }
 
   .muted {
-    color: #64748b;
+    color: var(--muted);
     font-size: 0.77rem;
   }
 
@@ -1250,10 +1360,10 @@
   .preview object {
     width: 100%;
     height: 46vh;
-    border: 1px solid #dbeafe;
+    border: 1px solid var(--card-border);
     border-radius: 10px;
     margin-top: 0.5rem;
-    background: white;
+    background: #1e1e1e;
   }
 
   .preview-dual {
@@ -1265,16 +1375,16 @@
   }
 
   .preview-pane {
-    border: 1px solid #dbe5f0;
+    border: 1px solid var(--card-border);
     border-radius: 10px;
     padding: 0.5rem;
-    background: #fff;
+    background: #252526;
   }
 
   .preview-pane h3 {
     margin: 0 0 0.4rem 0;
     font-size: 0.87rem;
-    color: #334155;
+    color: #f3f4f6;
   }
 
   .preview-pane-head {
@@ -1284,16 +1394,21 @@
     margin-bottom: 0.35rem;
   }
 
+  .view-controls {
+    display: flex;
+    gap: 0.3rem;
+  }
+
   .preview-pane svg {
     width: 100%;
     height: 260px;
     display: block;
-    border: 1px solid #f1f5f9;
+    border: 1px solid var(--card-border);
     border-radius: 8px;
     background:
-      linear-gradient(#f8fafc 1px, transparent 1px) 0 0 / 100% 20px,
-      linear-gradient(90deg, #f8fafc 1px, transparent 1px) 0 0 / 20px 100%,
-      #ffffff;
+      linear-gradient(rgba(62, 62, 66, 0.7) 1px, transparent 1px) 0 0 / 100% 20px,
+      linear-gradient(90deg, rgba(62, 62, 66, 0.7) 1px, transparent 1px) 0 0 / 20px 100%,
+      #1e1e1e;
     cursor: grab;
     touch-action: none;
     user-select: none;
@@ -1303,31 +1418,34 @@
     cursor: grabbing;
   }
 
+  .preview-pane svg.template-panning-active {
+    cursor: grabbing;
+  }
+
   .layer-cut {
     fill: none;
-    stroke: #111827;
-    stroke-width: 0.8;
+    stroke: #2563eb;
+    stroke-width: 1.1;
   }
 
   .layer-score {
     fill: none;
-    stroke: #0a66c2;
-    stroke-width: 0.65;
-    stroke-dasharray: 4 3;
+    stroke: #2563eb;
+    stroke-width: 1.1;
+    stroke-dasharray: none;
   }
 
   .layer-guide {
     fill: none;
-    stroke: #64748b;
-    stroke-width: 0.55;
-    stroke-dasharray: 2.4 2.2;
+    stroke: #2563eb;
+    stroke-width: 1.1;
+    stroke-dasharray: none;
   }
 
-  .wire-line {
-    stroke: #0f172a;
-    stroke-width: 1.25;
-    stroke-linecap: round;
-    opacity: 0.8;
+  .solid-face {
+    stroke-width: 1;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
   }
 
   @media (max-width: 1350px) {

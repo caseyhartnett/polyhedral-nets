@@ -1,19 +1,14 @@
-import { json } from "@sveltejs/kit";
-import { t as toApiUrl } from "../../../../chunks/api.js";
+import { p as proxyJson, t as toApiUrl } from "../../../../chunks/proxy.js";
 async function GET() {
-  const response = await fetch(toApiUrl("/v1/jobs"));
-  const data = await response.json();
-  return json(data, { status: response.status });
+  return proxyJson(toApiUrl("/v1/jobs"));
 }
 async function POST({ request }) {
   const payload = await request.json();
-  const response = await fetch(toApiUrl("/v1/jobs"), {
+  return proxyJson(toApiUrl("/v1/jobs"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
-  const data = await response.json();
-  return json(data, { status: response.status });
 }
 export {
   GET,

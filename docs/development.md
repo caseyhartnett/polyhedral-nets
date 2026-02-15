@@ -38,11 +38,17 @@ npm run dev:all
 
 ```bash
 npm run build
+npm run lint
 npm run typecheck
 npm run test
 ```
 
 Per-workspace checks are available through each package `scripts`.
+
+Web smoke tests:
+
+- `apps/web/src/lib/proxy.test.ts` validates upstream JSON/artifact proxy behavior
+- `apps/web/src/routes/api/proxy-routes.test.ts` validates route-level request forwarding
 
 ## Important environment variables
 
@@ -51,6 +57,7 @@ Per-workspace checks are available through each package `scripts`.
 - `PORT`, `HOST` for API binding
 - `TORRIFY_DATA_DIR` for artifact storage root
 - `JOB_ATTEMPTS`, `JOB_BACKOFF_MS`, `WORKER_CONCURRENCY` for queue behavior
+- `API_BASE_URL` for web proxy target (default `http://127.0.0.1:3000`)
 
 ## Data and artifacts
 

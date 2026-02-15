@@ -8,7 +8,7 @@ function _page($$renderer, $$props) {
         $$renderer4.push(`<title>${escape_html(data.project.project.name)} • Pottery Pattern CAD</title>`);
       });
     });
-    $$renderer2.push(`<main class="svelte-1n2426w"><a href="/">← Back</a> <h1>${escape_html(data.project.project.name)}</h1> <p>Created ${escape_html(new Date(data.project.project.createdAt).toLocaleString())} • Revisions ${escape_html(data.project.revisionsCount)} • Jobs ${escape_html(data.project.jobsCount)}</p> <section class="svelte-1n2426w"><h2>Recent Revisions</h2> `);
+    $$renderer2.push(`<main class="svelte-1n2426w"><a href="/" class="svelte-1n2426w">← Back</a> <h1>${escape_html(data.project.project.name)}</h1> <p>Created ${escape_html(new Date(data.project.project.createdAt).toLocaleString())} • Revisions ${escape_html(data.project.revisionsCount)} • Jobs ${escape_html(data.project.jobsCount)}</p> <section class="svelte-1n2426w"><h2>Recent Revisions</h2> `);
     if (data.revisions.length === 0) {
       $$renderer2.push("<!--[-->");
       $$renderer2.push(`<p>No revisions.</p>`);

@@ -1,9 +1,6 @@
-import { json } from "@sveltejs/kit";
-import { t as toApiUrl } from "../../../../../chunks/api.js";
+import { p as proxyJson, t as toApiUrl } from "../../../../../chunks/proxy.js";
 async function GET({ params }) {
-  const response = await fetch(toApiUrl(`/v1/projects/${params.projectId}`));
-  const data = await response.json();
-  return json(data, { status: response.status });
+  return proxyJson(toApiUrl(`/v1/projects/${params.projectId}`));
 }
 export {
   GET

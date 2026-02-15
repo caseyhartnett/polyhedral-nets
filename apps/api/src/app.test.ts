@@ -133,7 +133,7 @@ class FakeStore implements JobStoreLike {
     return true;
   }
 
-  async readArtifact(_jobId: string, _format: "svg" | "pdf" | "stl"): Promise<string | undefined> {
+  async readArtifact(): Promise<string | undefined> {
     return undefined;
   }
 
@@ -296,6 +296,102 @@ test("POST /v1/jobs rejects unsupported edge-count combinations", async () => {
 
   assert.equal(mismatched.statusCode, 400);
   assert.match(mismatched.body, /Unsupported shape/);
+
+  await app.close();
+});
+
+test("POST /v1/jobs reuses parent revision project when projectId is omitted", async () => {
+  const store = new FakeStore();
+  const queue = new FakeQueue();
+  const app = buildApp(store, queue);
+
+  const initial = await app.inject({
+    method: "POST",
+    url: "/v1/jobs",
+    payload: makeJobPayload()
+  });
+  const first = initial.json();
+
+  const followUp = await app.inject({
+    method: "POST",
+    url: "/v1/jobs",
+    payload: {
+      ...makeJobPayload(),
+      parentRevisionId: first.revisionId
+    }
+  });
+
+  assert.equal(followUp.statusCode, 202);
+  const second = followUp.json();
+  assert.equal(second.projectId, first.projectId);
+
+  await app.close();
+});
+
+test("POST /v1/jobs rejects parent revision from a different project", async () => {
+  const store = new FakeStore();
+  const queue = new FakeQueue();
+  const app = buildApp(store, queue);
+
+  const seedJob = await app.inject({
+    method: "POST",
+    url: "/v1/jobs",
+    payload: makeJobPayload()
+  });
+  const seed = seedJob.json();
+
+  const otherProjectRes = await app.inject({
+    method: "POST",
+    url: "/v1/projects",
+    payload: { name: "Other Project" }
+  });
+  const otherProject = otherProjectRes.json();
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/jobs",
+    payload: {
+      ...makeJobPayload(otherProject.id),
+      parentRevisionId: seed.revisionId
+    }
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.match(response.body, /different project/i);
+
+  await app.close();
+});
+
+test("POST /v1/projects/:projectId/revisions rejects parent revision from another project", async () => {
+  const store = new FakeStore();
+  const queue = new FakeQueue();
+  const app = buildApp(store, queue);
+
+  const parentJobRes = await app.inject({
+    method: "POST",
+    url: "/v1/jobs",
+    payload: makeJobPayload()
+  });
+  const parentJob = parentJobRes.json();
+
+  const targetProjectRes = await app.inject({
+    method: "POST",
+    url: "/v1/projects",
+    payload: { name: "Target Project" }
+  });
+  const targetProject = targetProjectRes.json();
+
+  const response = await app.inject({
+    method: "POST",
+    url: `/v1/projects/${targetProject.id}/revisions`,
+    payload: {
+      shapeDefinition: baseShape,
+      parentRevisionId: parentJob.revisionId
+    }
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.match(response.body, /different project/i);
 
   await app.close();
 });
