@@ -17,7 +17,7 @@
     "dev:all": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && concurrently -k -n api,worker,web -c cyan,magenta,green \"npm run -w @torrify/api dev\" \"npm run -w @torrify/worker dev\" \"npm run -w @torrify/web dev\"",
     "lint": "npm run --ws lint",
     "test": "npm run --ws test",
-    "typecheck": "npm run --ws typecheck"
+    "typecheck": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && npm run --ws typecheck"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
