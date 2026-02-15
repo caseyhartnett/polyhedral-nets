@@ -218,8 +218,37 @@ fs.mkdirSync(outDir, { recursive: true });
 
 for (const example of examples) {
   const canonical = buildCanonicalGeometry(example.shape);
-  const netSvg = renderTemplateSvg(canonical);
-  const wireframeSvg = createWireframeSvg(buildWireframePreview(example.shape, example.camera));
+  // README is commonly viewed in dark themes, so generated showcase SVGs use a white
+  // background and thicker strokes for legibility.
+  const netSvg = renderTemplateSvg(canonical, {
+    backgroundColor: "#ffffff",
+    layerStyles: {
+      cut: {
+        stroke: "#111827",
+        strokeWidth: 0.8,
+        strokeLinecap: "round",
+        strokeLinejoin: "round"
+      },
+      score: {
+        stroke: "#1d4ed8",
+        strokeWidth: 0.65,
+        strokeDasharray: "2.2 1.4",
+        strokeLinecap: "round"
+      },
+      guide: {
+        stroke: "#6b7280",
+        strokeWidth: 0.5,
+        strokeDasharray: "1.4 1.1",
+        strokeLinecap: "round",
+        strokeOpacity: 0.9
+      }
+    }
+  });
+  const wireframeSvg = createWireframeSvg(buildWireframePreview(example.shape, example.camera), {
+    backgroundColor: "#ffffff",
+    stroke: "#111827",
+    strokeWidth: 1.7
+  });
 
   const netPath = path.join(outDir, `${example.id}-net.svg`);
   const wirePath = path.join(outDir, `${example.id}-wireframe.svg`);
