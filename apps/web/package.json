@@ -2,14 +2,15 @@
   "name": "@torrify/web",
   "version": "0.1.0",
   "private": true,
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "svelte-kit sync && vite build",
     "preview": "vite preview",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "lint": "eslint src --ext .ts,.js --max-warnings=0 && svelte-check --tsconfig ./tsconfig.json",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "lint": "svelte-kit sync && eslint src --ext .ts,.js --max-warnings=0 && svelte-check --tsconfig ./tsconfig.json",
+    "test": "sh -c 'set -e; files=\"$(find src -type f -name \"*.test.ts\")\"; if [ -z \"$files\" ]; then echo \"No web tests found\"; exit 0; fi; node --import tsx --test $files'"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.8",

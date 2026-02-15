@@ -4,6 +4,7 @@ import {
   type WireframeCamera
 } from '@torrify/geometry-engine';
 import type { ShapeDefinition } from '@torrify/shared-types';
+import { clampInt } from './form-state';
 
 export interface PreviewShapeDefinition {
   schemaVersion?: '1.0';
@@ -74,7 +75,7 @@ function toPath(points: Array<{ x: number; y: number }>, closed = false): string
 }
 
 function toShapeDefinition(def: PreviewShapeDefinition): ShapeDefinition {
-  const base = Math.max(1, Math.floor(def.segments || 1));
+  const base = clampInt(def.segments, 3, 256, 6);
   return {
     schemaVersion: def.schemaVersion ?? '1.0',
     height: def.height,
@@ -89,8 +90,8 @@ function toShapeDefinition(def: PreviewShapeDefinition): ShapeDefinition {
     generationMode: def.generationMode ?? 'legacy',
     polyhedron: def.polyhedron,
     segments: base,
-    bottomSegments: Math.max(1, Math.floor(def.bottomSegments ?? base)),
-    topSegments: Math.max(1, Math.floor(def.topSegments ?? base))
+    bottomSegments: clampInt(def.bottomSegments ?? base, 3, 256, base),
+    topSegments: clampInt(def.topSegments ?? base, 1, 256, base)
   };
 }
 

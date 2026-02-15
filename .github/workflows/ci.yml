@@ -3,15 +3,64 @@ name: ci
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: test -f apps/web/build/index.html
+      - run: test -f apps/web/build/_headers
+
+  audit:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: validate
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - run: npm run typecheck
-      - run: npm run build
+          cache: npm
+      - run: npm ci
+      - name: npm audit (retry transient network failures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          attempts=3
+          for attempt in $(seq 1 "$attempts"); do
+            echo "npm audit attempt $attempt/$attempts"
+            out="$(mktemp)"
+            set +e
+            npm audit --audit-level=high >"$out" 2>&1
+            code=$?
+            set -e
+            cat "$out"
+
+            if [ "$code" -eq 0 ]; then
+              exit 0
+            fi
+
+            if grep -qiE "EAI_AGAIN|ETIMEDOUT|ECONNRESET|ENOTFOUND|audit endpoint returned an error|network" "$out" && [ "$attempt" -lt "$attempts" ]; then
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            exit "$code"
+          done
