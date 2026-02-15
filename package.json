@@ -11,8 +11,10 @@
   ],
   "scripts": {
     "build": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web build",
-    "examples:gallery": "npm run -w @torrify/geometry-engine build && node scripts/generate-shape-gallery.mjs",
-    "examples:readme": "node scripts/generate-readme-examples.mjs",
+    "examples:prepare": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build",
+    "examples:gallery": "npm run examples:prepare && node scripts/generate-shape-gallery.mjs",
+    "examples:readme": "npm run examples:prepare && node scripts/generate-readme-examples.mjs",
+    "examples:all": "npm run examples:prepare && node scripts/generate-readme-examples.mjs && node scripts/generate-shape-gallery.mjs",
     "dev": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web dev",
     "dev:web": "npm run -w @torrify/web dev",
     "lint": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run --ws lint",
