@@ -1555,16 +1555,22 @@ function pdfStyleForLayer(layer: SvgLayer): { color: [number, number, number]; l
   return { color: [0.5, 0.5, 0.5], lineWidth: 0.3, dash: "[1.2 1.2] 0 d" };
 }
 
+const UTF8_ENCODER = new TextEncoder();
+
+function utf8ByteLength(input: string): number {
+  return UTF8_ENCODER.encode(input).length;
+}
+
 function buildPdf(objects: string[]): string {
   let output = "%PDF-1.4\n";
   const offsets: number[] = [0];
 
   for (let i = 0; i < objects.length; i += 1) {
-    offsets.push(Buffer.byteLength(output, "utf8"));
+    offsets.push(utf8ByteLength(output));
     output += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`;
   }
 
-  const xrefOffset = Buffer.byteLength(output, "utf8");
+  const xrefOffset = utf8ByteLength(output);
   output += `xref\n0 ${objects.length + 1}\n`;
   output += "0000000000 65535 f \n";
 
@@ -1622,7 +1628,7 @@ export function renderTemplatePdf(geometry: CanonicalGeometry): string {
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth.toFixed(3)} ${pageHeight.toFixed(3)}] /Resources << >> /Contents 4 0 R >>`,
-    `<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}endstream`
+    `<< /Length ${utf8ByteLength(content)} >>\nstream\n${content}endstream`
   ];
 
   return buildPdf(objects);

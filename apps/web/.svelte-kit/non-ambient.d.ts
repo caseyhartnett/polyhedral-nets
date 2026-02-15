@@ -27,37 +27,14 @@ export {};
 
 declare module "$app/types" {
 	export interface AppTypes {
-		RouteId(): "/" | "/api" | "/api/jobs" | "/api/jobs/[jobId]" | "/api/jobs/[jobId]/cancel" | "/api/jobs/[jobId]/fork" | "/api/jobs/[jobId]/pdf" | "/api/jobs/[jobId]/retry" | "/api/jobs/[jobId]/stl" | "/api/jobs/[jobId]/svg" | "/api/projects" | "/api/projects/[projectId]" | "/api/projects/[projectId]/revisions" | "/projects" | "/projects/[projectId]";
+		RouteId(): "/";
 		RouteParams(): {
-			"/api/jobs/[jobId]": { jobId: string };
-			"/api/jobs/[jobId]/cancel": { jobId: string };
-			"/api/jobs/[jobId]/fork": { jobId: string };
-			"/api/jobs/[jobId]/pdf": { jobId: string };
-			"/api/jobs/[jobId]/retry": { jobId: string };
-			"/api/jobs/[jobId]/stl": { jobId: string };
-			"/api/jobs/[jobId]/svg": { jobId: string };
-			"/api/projects/[projectId]": { projectId: string };
-			"/api/projects/[projectId]/revisions": { projectId: string };
-			"/projects/[projectId]": { projectId: string }
+			
 		};
 		LayoutParams(): {
-			"/": { jobId?: string; projectId?: string };
-			"/api": { jobId?: string; projectId?: string };
-			"/api/jobs": { jobId?: string };
-			"/api/jobs/[jobId]": { jobId: string };
-			"/api/jobs/[jobId]/cancel": { jobId: string };
-			"/api/jobs/[jobId]/fork": { jobId: string };
-			"/api/jobs/[jobId]/pdf": { jobId: string };
-			"/api/jobs/[jobId]/retry": { jobId: string };
-			"/api/jobs/[jobId]/stl": { jobId: string };
-			"/api/jobs/[jobId]/svg": { jobId: string };
-			"/api/projects": { projectId?: string };
-			"/api/projects/[projectId]": { projectId: string };
-			"/api/projects/[projectId]/revisions": { projectId: string };
-			"/projects": { projectId?: string };
-			"/projects/[projectId]": { projectId: string }
+			"/": Record<string, never>
 		};
-		Pathname(): "/" | "/api" | "/api/" | "/api/jobs" | "/api/jobs/" | `/api/jobs/${string}` & {} | `/api/jobs/${string}/` & {} | `/api/jobs/${string}/cancel` & {} | `/api/jobs/${string}/cancel/` & {} | `/api/jobs/${string}/fork` & {} | `/api/jobs/${string}/fork/` & {} | `/api/jobs/${string}/pdf` & {} | `/api/jobs/${string}/pdf/` & {} | `/api/jobs/${string}/retry` & {} | `/api/jobs/${string}/retry/` & {} | `/api/jobs/${string}/stl` & {} | `/api/jobs/${string}/stl/` & {} | `/api/jobs/${string}/svg` & {} | `/api/jobs/${string}/svg/` & {} | "/api/projects" | "/api/projects/" | `/api/projects/${string}` & {} | `/api/projects/${string}/` & {} | `/api/projects/${string}/revisions` & {} | `/api/projects/${string}/revisions/` & {} | "/projects" | "/projects/" | `/projects/${string}` & {} | `/projects/${string}/` & {};
+		Pathname(): "/";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): string & {};
 	}

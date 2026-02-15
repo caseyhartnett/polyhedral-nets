@@ -40,71 +40,43 @@ Supported presets:
 - `allowance` is applied as non-straight seam flap depth
 - Canonical metrics output:
   - `bottomRadius`, `topRadius`, `slantHeight`, `surfaceArea`, `faceCount`
-- 3D wireframe preview model generation
+- 3D preview model generation
 
 ## Export formats
 
-- SVG template export with grouped layers (`cut`, `score`, `guide`) and per-job layer filtering via `svgLayers`
-- Vector PDF export from canonical paths (honors `svgLayers` filtering)
+- SVG template export with grouped layers (`cut`, `score`, `guide`) and selectable layer filtering
+- Vector PDF export from canonical paths (honors selected layer filtering)
 - Deterministic ASCII STL export from triangulated mesh
-
-## API workflows
-
-- Health endpoint (`GET /health`)
-- Project workflows:
-  - create/list/get project
-  - create/list revisions per project
-- Job workflows:
-  - create queued export job (auto project create if omitted)
-    - if `parentRevisionId` is supplied without `projectId`, project is inferred from parent revision
-    - invalid parent/project combinations are rejected
-  - list jobs
-  - get job details/status
-  - cancel queued/running job
-  - fork prior job into child revision + new job
-  - retry failed/cancelled job into child revision + new job
-- Artifact workflows:
-  - list artifact URLs per job
-  - fetch `svg`, `pdf`, `stl` artifact payloads
-
-## Persistence and processing
-
-- PostgreSQL tables created on startup:
-  - `projects`, `revisions`, `export_jobs`, `artifacts`
-- Filesystem artifact persistence in `data/artifacts`
-- BullMQ queue-based async processing with retry/backoff options
-- Job status lifecycle:
-  - `queued` -> `running` -> `succeeded|failed|cancelled`
 
 ## Web UI capabilities
 
-- Project creation and selection
-- Revision selection and reuse
-- Project summary page with revision/job counts (`/projects/:projectId`)
-- Server-side API proxy routes with shared upstream error handling and binary-safe artifact forwarding
+- Stateless parameter editing in browser memory
 - Dual builder UI:
   - legacy dimension inputs
   - polyhedron catalog/family selection
-- Live 2D template preview and interactive 3D wireframe preview
-- Job history list with:
-  - load params
-  - fork
-  - retry
-  - cancel
-  - artifact links/downloads
+- Live 2D template preview and interactive 3D solid preview
+- Direct in-browser export generation and download for SVG/PDF/STL
+- No API calls required for core generation flow
+
+## Stateless behavior
+
+- No project/revision/job model
+- No background queue or polling status
+- No persisted history pane
+- Session state resets on refresh or tab close
 
 ## Validation and warnings currently present
 
-- Zod schema validation for all job payloads
+- Zod schema validation for shape inputs
 - Polyhedron-specific validation (preset, face mode, ring side bounds)
 - Edge-count validation for legacy mode
-- Runtime warnings surfaced in canonical geometry for currently approximated behavior (details in `docs/printability-rules.md`)
+- Runtime warnings surfaced in canonical geometry (details in `docs/printability-rules.md`)
 
 ## Test coverage currently present
 
-- API route tests for job creation/cancel/retry and validation failure paths
 - Geometry harness tests for:
   - mesh/net invariants
   - polyhedron preset net validity
   - edge-length consistency (3D mesh vs 2D net)
   - exporter smoke checks (SVG/PDF/STL)
+- Web export utility tests for stateless generation and layer filtering

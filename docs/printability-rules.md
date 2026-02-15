@@ -30,7 +30,7 @@ When `generationMode` is `"polyhedron"`:
   - `cuboctahedron` and `truncatedOctahedron` require `faceMode: "mixed"`
   - single-face presets require `faceMode: "uniform"`
 
-## Runtime warnings (job can still succeed)
+## Runtime warnings (generation can still succeed)
 
 Current geometry warnings include:
 

@@ -10,12 +10,11 @@ return {
 	assets: new Set([]),
 	mimeTypes: {},
 	_: {
-		client: {start:"_app/immutable/entry/start.DyxW5Zw_.js",app:"_app/immutable/entry/app.DKGip0Rz.js",imports:["_app/immutable/entry/start.DyxW5Zw_.js","_app/immutable/chunks/BCAsOt_5.js","_app/immutable/chunks/BuWPfYOh.js","_app/immutable/chunks/BUApaBEI.js","_app/immutable/chunks/BRh605vQ.js","_app/immutable/entry/app.DKGip0Rz.js","_app/immutable/chunks/BuWPfYOh.js","_app/immutable/chunks/DXb-FEHi.js","_app/immutable/chunks/DUsptdjt.js","_app/immutable/chunks/BRh605vQ.js","_app/immutable/chunks/DhAqJI-G.js","_app/immutable/chunks/CIfvLNBB.js","_app/immutable/chunks/BKZoytxh.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.CwaA_R20.js",app:"_app/immutable/entry/app.C67m9Edd.js",imports:["_app/immutable/entry/start.CwaA_R20.js","_app/immutable/chunks/BSU1DJ8C.js","_app/immutable/chunks/BPAtTmwV.js","_app/immutable/chunks/CsFwsMlA.js","_app/immutable/entry/app.C67m9Edd.js","_app/immutable/chunks/BPAtTmwV.js","_app/immutable/chunks/CxBB-kgx.js","_app/immutable/chunks/CUi9kwaE.js","_app/immutable/chunks/CsFwsMlA.js","_app/immutable/chunks/Buk_MS6v.js","_app/immutable/chunks/CmQNTbo6.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),
-			__memo(() => import('./nodes/2.js')),
-			__memo(() => import('./nodes/3.js'))
+			__memo(() => import('./nodes/2.js'))
 		],
 		remotes: {
 			
@@ -26,90 +25,6 @@ return {
 				pattern: /^\/$/,
 				params: [],
 				page: { layouts: [0,], errors: [1,], leaf: 2 },
-				endpoint: null
-			},
-			{
-				id: "/api/jobs",
-				pattern: /^\/api\/jobs\/?$/,
-				params: [],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]",
-				pattern: /^\/api\/jobs\/([^/]+?)\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]/cancel",
-				pattern: /^\/api\/jobs\/([^/]+?)\/cancel\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/cancel/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]/fork",
-				pattern: /^\/api\/jobs\/([^/]+?)\/fork\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/fork/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]/pdf",
-				pattern: /^\/api\/jobs\/([^/]+?)\/pdf\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/pdf/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]/retry",
-				pattern: /^\/api\/jobs\/([^/]+?)\/retry\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/retry/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]/stl",
-				pattern: /^\/api\/jobs\/([^/]+?)\/stl\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/stl/_server.ts.js'))
-			},
-			{
-				id: "/api/jobs/[jobId]/svg",
-				pattern: /^\/api\/jobs\/([^/]+?)\/svg\/?$/,
-				params: [{"name":"jobId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/jobs/_jobId_/svg/_server.ts.js'))
-			},
-			{
-				id: "/api/projects",
-				pattern: /^\/api\/projects\/?$/,
-				params: [],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/projects/_server.ts.js'))
-			},
-			{
-				id: "/api/projects/[projectId]",
-				pattern: /^\/api\/projects\/([^/]+?)\/?$/,
-				params: [{"name":"projectId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/projects/_projectId_/_server.ts.js'))
-			},
-			{
-				id: "/api/projects/[projectId]/revisions",
-				pattern: /^\/api\/projects\/([^/]+?)\/revisions\/?$/,
-				params: [{"name":"projectId","optional":false,"rest":false,"chained":false}],
-				page: null,
-				endpoint: __memo(() => import('./entries/endpoints/api/projects/_projectId_/revisions/_server.ts.js'))
-			},
-			{
-				id: "/projects/[projectId]",
-				pattern: /^\/projects\/([^/]+?)\/?$/,
-				params: [{"name":"projectId","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,], errors: [1,], leaf: 3 },
 				endpoint: null
 			}
 		],

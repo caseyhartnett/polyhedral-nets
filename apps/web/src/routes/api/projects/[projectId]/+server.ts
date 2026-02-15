@@ -1,6 +1,0 @@
-import { toApiUrl } from '$lib/api.server';
-import { proxyJson } from '$lib/proxy';
-
-export async function GET({ params }) {
-  return proxyJson(toApiUrl(`/v1/projects/${params.projectId}`));
-}

@@ -1,8 +1,9 @@
-import { n as noop, k as getContext, l as escape_html } from "../../chunks/context.js";
+import { n as noop, g as getContext, e as escape_html } from "../../chunks/index.js";
 import "clsx";
-import "@sveltejs/kit/internal/server";
-import "@sveltejs/kit/internal";
 import { w as writable } from "../../chunks/exports.js";
+import "@sveltejs/kit/internal/server";
+import "../../chunks/root.js";
+import "@sveltejs/kit/internal";
 import "../../chunks/utils.js";
 function create_updated_store() {
   const { set, subscribe } = writable(false);

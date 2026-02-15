@@ -703,3 +703,16 @@ test("allowance affects non-straight seam flap depth", () => {
     "changing allowance should change overlap seam geometry"
   );
 });
+
+test("PDF export does not depend on global Buffer", () => {
+  const originalBuffer = Reflect.get(globalThis, "Buffer");
+
+  Reflect.set(globalThis, "Buffer", undefined);
+  try {
+    const geometry = buildCanonicalGeometry(makeShape({}));
+    const pdf = renderTemplatePdf(geometry);
+    assert.ok(pdf.startsWith("%PDF-1.4"), "PDF export should still render without Buffer");
+  } finally {
+    Reflect.set(globalThis, "Buffer", originalBuffer);
+  }
+});
