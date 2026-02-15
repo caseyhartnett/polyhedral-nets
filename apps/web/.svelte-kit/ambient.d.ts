@@ -27,6 +27,7 @@
  */
 declare module '$env/static/private' {
 	export const LESSOPEN: string;
+	export const CODEX_CI: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
 	export const GIT_ASKPASS: string;
@@ -40,17 +41,19 @@ declare module '$env/static/private' {
 	export const npm_package_json: string;
 	export const NVM_INC: string;
 	export const npm_package_engines_node: string;
+	export const PAGER: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
+	export const LC_CTYPE: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_local_prefix: string;
+	export const NO_COLOR: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
 	export const COLORTERM: string;
 	export const WSL_DISTRO_NAME: string;
 	export const COLOR: string;
 	export const NVM_DIR: string;
 	export const WAYLAND_DISPLAY: string;
-	export const FORCE_COLOR: string;
 	export const LOGNAME: string;
 	export const NAME: string;
 	export const WSL_INTEROP: string;
@@ -66,7 +69,9 @@ declare module '$env/static/private' {
 	export const npm_package_name: string;
 	export const XDG_RUNTIME_DIR: string;
 	export const DISPLAY: string;
+	export const CODEX_SANDBOX_NETWORK_DISABLED: string;
 	export const LANG: string;
+	export const GH_PAGER: string;
 	export const LS_COLORS: string;
 	export const VSCODE_GIT_IPC_HANDLE: string;
 	export const TERM_PROGRAM: string;
@@ -75,17 +80,21 @@ declare module '$env/static/private' {
 	export const npm_package_version: string;
 	export const npm_lifecycle_event: string;
 	export const LESSCLOSE: string;
+	export const CODEX_THREAD_ID: string;
 	export const VSCODE_GIT_IPC_AUTH_TOKEN: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
+	export const GIT_PAGER: string;
 	export const npm_config_globalconfig: string;
 	export const npm_config_init_module: string;
 	export const PWD: string;
+	export const LC_ALL: string;
 	export const npm_execpath: string;
 	export const NVM_CD_FLAGS: string;
 	export const XDG_DATA_DIRS: string;
 	export const npm_config_global_prefix: string;
 	export const npm_command: string;
 	export const WSL2_GUI_APPS_ENABLED: string;
+	export const CODEX_MANAGED_BY_NPM: string;
 	export const HOSTTYPE: string;
 	export const WSLENV: string;
 	export const INIT_CWD: string;
@@ -121,6 +130,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		LESSOPEN: string;
+		CODEX_CI: string;
 		USER: string;
 		npm_config_user_agent: string;
 		GIT_ASKPASS: string;
@@ -134,17 +144,19 @@ declare module '$env/dynamic/private' {
 		npm_package_json: string;
 		NVM_INC: string;
 		npm_package_engines_node: string;
+		PAGER: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
+		LC_CTYPE: string;
 		npm_config_userconfig: string;
 		npm_config_local_prefix: string;
+		NO_COLOR: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
 		COLORTERM: string;
 		WSL_DISTRO_NAME: string;
 		COLOR: string;
 		NVM_DIR: string;
 		WAYLAND_DISPLAY: string;
-		FORCE_COLOR: string;
 		LOGNAME: string;
 		NAME: string;
 		WSL_INTEROP: string;
@@ -160,7 +172,9 @@ declare module '$env/dynamic/private' {
 		npm_package_name: string;
 		XDG_RUNTIME_DIR: string;
 		DISPLAY: string;
+		CODEX_SANDBOX_NETWORK_DISABLED: string;
 		LANG: string;
+		GH_PAGER: string;
 		LS_COLORS: string;
 		VSCODE_GIT_IPC_HANDLE: string;
 		TERM_PROGRAM: string;
@@ -169,17 +183,21 @@ declare module '$env/dynamic/private' {
 		npm_package_version: string;
 		npm_lifecycle_event: string;
 		LESSCLOSE: string;
+		CODEX_THREAD_ID: string;
 		VSCODE_GIT_IPC_AUTH_TOKEN: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
+		GIT_PAGER: string;
 		npm_config_globalconfig: string;
 		npm_config_init_module: string;
 		PWD: string;
+		LC_ALL: string;
 		npm_execpath: string;
 		NVM_CD_FLAGS: string;
 		XDG_DATA_DIRS: string;
 		npm_config_global_prefix: string;
 		npm_command: string;
 		WSL2_GUI_APPS_ENABLED: string;
+		CODEX_MANAGED_BY_NPM: string;
 		HOSTTYPE: string;
 		WSLENV: string;
 		INIT_CWD: string;

@@ -1,7 +1,8 @@
-import { B as BROWSER, a as assets, b as base, c as app_dir, r as relative, o as override, d as reset } from "./chunks/environment.js";
+import { B as BROWSER } from "./chunks/false.js";
 import { json, text, error } from "@sveltejs/kit";
 import { Redirect, SvelteKitError, ActionFailure, HttpError } from "@sveltejs/kit/internal";
 import { with_request_store, merge_tracing, try_get_request_store } from "@sveltejs/kit/internal/server";
+import { a as assets, b as base, c as app_dir, r as relative, o as override, d as reset } from "./chunks/environment.js";
 import { E as ENDPOINT_METHODS, P as PAGE_METHODS, n as negotiate, m as method_not_allowed, h as handle_error_and_jsonify, g as get_status, i as is_form_content_type, a as normalize_error, b as get_global_name, s as serialize_uses, c as clarify_devalue_error, d as get_node_type, e as escape_html, S as SVELTE_KIT_ASSETS, f as create_remote_key, j as static_error_page, r as redirect_response, p as parse_remote_arg, k as stringify, l as deserialize_binary_form, o as has_prerendered_path, T as TRAILING_SLASH_PARAM, I as INVALIDATED_PARAM, q as handle_fatal_error, t as format_server_error } from "./chunks/shared.js";
 import * as devalue from "devalue";
 import { m as make_trackable, d as disable_search, a as decode_params, S as SCHEME, w as writable, r as readable, v as validate_layout_server_exports, b as validate_layout_exports, c as validate_page_server_exports, e as validate_page_exports, n as normalize_path, f as resolve, g as decode_pathname, h as validate_server_exports } from "./chunks/exports.js";
@@ -1411,6 +1412,20 @@ function exec(match, params, matchers) {
   if (buffered) return;
   return result;
 }
+function find_route(path, routes, matchers) {
+  for (const route of routes) {
+    const match = route.pattern.exec(path);
+    if (!match) continue;
+    const matched = exec(match, route.params, matchers);
+    if (matched) {
+      return {
+        route,
+        params: decode_params(matched)
+      };
+    }
+  }
+  return null;
+}
 function generate_route_object(route, url, manifest) {
   const { errors, layouts, leaf } = route;
   const nodes = [...errors, ...layouts.map((l) => l?.[1]), leaf[1]].filter((n) => typeof n === "number").map((n) => `'${n}': () => ${create_client_import(manifest._.client.nodes?.[n], url)}`).join(",\n		");
@@ -1442,20 +1457,9 @@ async function resolve_route(resolved_path, url, manifest) {
   if (!manifest._.client.routes) {
     return text("Server-side route resolution disabled", { status: 400 });
   }
-  let route = null;
-  let params = {};
   const matchers = await manifest._.matchers();
-  for (const candidate of manifest._.client.routes) {
-    const match = candidate.pattern.exec(resolved_path);
-    if (!match) continue;
-    const matched = exec(match, candidate.params, matchers);
-    if (matched) {
-      route = candidate;
-      params = decode_params(matched);
-      break;
-    }
-  }
-  return create_server_routing_response(route, params, url, manifest).response;
+  const result = find_route(resolved_path, manifest._.client.routes, matchers);
+  return create_server_routing_response(result?.route ?? null, result?.params ?? {}, url, manifest).response;
 }
 function create_server_routing_response(route, params, url, manifest) {
   const headers2 = new Headers({
@@ -3178,7 +3182,7 @@ async function internal_respond(request, options2, manifest, state) {
     fetch: null,
     getClientAddress: state.getClientAddress || (() => {
       throw new Error(
-        `${"@sveltejs/adapter-auto"} does not specify getClientAddress. Please raise an issue`
+        `${"@sveltejs/adapter-static"} does not specify getClientAddress. Please raise an issue`
       );
     }),
     locals: {},
@@ -3289,16 +3293,11 @@ async function internal_respond(request, options2, manifest, state) {
   }
   if (!state.prerendering?.fallback) {
     const matchers = await manifest._.matchers();
-    for (const candidate of manifest._.routes) {
-      const match = candidate.pattern.exec(resolved_path);
-      if (!match) continue;
-      const matched = exec(match, candidate.params, matchers);
-      if (matched) {
-        route = candidate;
-        event.route = { id: route.id };
-        event.params = decode_params(matched);
-        break;
-      }
+    const result = find_route(resolved_path, manifest._.routes, matchers);
+    if (result) {
+      route = result.route;
+      event.route = { id: route.id };
+      event.params = result.params;
     }
   }
   let resolve_opts = {

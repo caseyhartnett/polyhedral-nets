@@ -1,99 +1,23 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { buildTemplatePreview, buildSolidPreview } from '$lib/preview';
+  import {
+    artifactFileName,
+    artifactMimeType,
+    generateExportArtifacts
+  } from '$lib/exports';
+  import type {
+    CanonicalGeometry,
+    ExportFormat,
+    PolyhedronDefinition,
+    PolyhedronPreset,
+    ShapeDefinition,
+    SvgLayer
+  } from '@torrify/shared-types';
 
-  type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
-  type ExportFormat = 'svg' | 'pdf' | 'stl';
   type ShapeBuilderMode = 'legacy' | 'polyhedron';
   type PolyhedronInputMode = 'catalog' | 'family';
-  type PolyhedronPreset =
-    | 'tetrahedron'
-    | 'cube'
-    | 'octahedron'
-    | 'icosahedron'
-    | 'dodecahedron'
-    | 'cuboctahedron'
-    | 'truncatedOctahedron'
-    | 'regularPrism'
-    | 'regularAntiprism'
-    | 'regularBipyramid';
   type PolyhedronFamilyPreset = 'regularPrism' | 'regularAntiprism' | 'regularBipyramid';
-
-  interface PolyhedronDefinition {
-    preset: PolyhedronPreset;
-    edgeLength: number;
-    faceMode: 'uniform' | 'mixed';
-    ringSides?: number;
-  }
-
-  interface ShapeDefinition {
-    schemaVersion: '1.0';
-    height: number;
-    bottomWidth: number;
-    topWidth: number;
-    thickness: number;
-    units: 'mm' | 'in';
-    seamMode: 'straight' | 'overlap' | 'tabbed';
-    allowance: number;
-    notches: unknown[];
-    profilePoints: unknown[];
-    generationMode: ShapeBuilderMode;
-    polyhedron?: PolyhedronDefinition;
-    segments: number;
-    bottomSegments: number;
-    topSegments: number;
-  }
-
-  interface Project {
-    id: string;
-    name: string;
-    createdAt: string;
-  }
-
-  interface Revision {
-    id: string;
-    projectId: string;
-    parentRevisionId: string | null;
-    shapeDefinition: ShapeDefinition;
-    createdAt: string;
-  }
-
-  interface JobResponse {
-    jobId: string;
-    projectId: string;
-    revisionId: string;
-    status: JobStatus;
-    error?: string;
-    artifacts?: { hasSvg?: boolean; hasPdf?: boolean; hasStl?: boolean };
-  }
-
-  interface ProjectSummary {
-    project: Project;
-    revisionsCount: number;
-    jobsCount: number;
-    latestRevision: Revision | null;
-    latestJob:
-      | {
-          jobId: string;
-          revisionId: string;
-          status: JobStatus;
-          createdAt: string;
-          updatedAt: string;
-        }
-      | null;
-  }
-
-  interface JobsListResponse {
-    jobs: Array<{
-      jobId: string;
-      projectId: string;
-      revisionId: string;
-      status: JobStatus;
-      createdAt: string;
-      shapeDefinition: ShapeDefinition;
-      artifacts?: { hasSvg?: boolean; hasPdf?: boolean; hasStl?: boolean };
-    }>;
-  }
 
   interface PolyhedronCatalogOption {
     key: string;
@@ -131,56 +55,95 @@
     { key: 'octahedron', label: 'Octahedron', faces: '8 triangles', preset: 'octahedron' },
     { key: 'icosahedron', label: 'Icosahedron', faces: '20 triangles', preset: 'icosahedron' },
     { key: 'dodecahedron', label: 'Dodecahedron', faces: '12 pentagons', preset: 'dodecahedron' },
-    { key: 'cuboctahedron', label: 'Cuboctahedron', faces: '8 triangles + 6 squares', preset: 'cuboctahedron' },
-    { key: 'truncatedOctahedron', label: 'Truncated Octahedron', faces: '8 hexagons + 6 squares', preset: 'truncatedOctahedron' },
-    { key: 'triPrism', label: 'Triangular Prism', faces: '2 triangles + 3 squares', preset: 'regularPrism', ringSides: 3 },
-    { key: 'pentPrism', label: 'Pentagonal Prism', faces: '2 pentagons + 5 squares', preset: 'regularPrism', ringSides: 5 },
-    { key: 'hexPrism', label: 'Hexagonal Prism', faces: '2 hexagons + 6 squares', preset: 'regularPrism', ringSides: 6 },
-    { key: 'squareAntiprism', label: 'Square Antiprism', faces: '2 squares + 8 triangles', preset: 'regularAntiprism', ringSides: 4 },
-    { key: 'pentAntiprism', label: 'Pentagonal Antiprism', faces: '2 pentagons + 10 triangles', preset: 'regularAntiprism', ringSides: 5 },
-    { key: 'triBipyramid', label: 'Triangular Bipyramid', faces: '6 triangles', preset: 'regularBipyramid', ringSides: 3 },
-    { key: 'pentBipyramid', label: 'Pentagonal Bipyramid', faces: '10 triangles', preset: 'regularBipyramid', ringSides: 5 }
+    {
+      key: 'cuboctahedron',
+      label: 'Cuboctahedron',
+      faces: '8 triangles + 6 squares',
+      preset: 'cuboctahedron'
+    },
+    {
+      key: 'truncatedOctahedron',
+      label: 'Truncated Octahedron',
+      faces: '8 hexagons + 6 squares',
+      preset: 'truncatedOctahedron'
+    },
+    {
+      key: 'triPrism',
+      label: 'Triangular Prism',
+      faces: '2 triangles + 3 squares',
+      preset: 'regularPrism',
+      ringSides: 3
+    },
+    {
+      key: 'pentPrism',
+      label: 'Pentagonal Prism',
+      faces: '2 pentagons + 5 squares',
+      preset: 'regularPrism',
+      ringSides: 5
+    },
+    {
+      key: 'hexPrism',
+      label: 'Hexagonal Prism',
+      faces: '2 hexagons + 6 squares',
+      preset: 'regularPrism',
+      ringSides: 6
+    },
+    {
+      key: 'squareAntiprism',
+      label: 'Square Antiprism',
+      faces: '2 squares + 8 triangles',
+      preset: 'regularAntiprism',
+      ringSides: 4
+    },
+    {
+      key: 'pentAntiprism',
+      label: 'Pentagonal Antiprism',
+      faces: '2 pentagons + 10 triangles',
+      preset: 'regularAntiprism',
+      ringSides: 5
+    },
+    {
+      key: 'triBipyramid',
+      label: 'Triangular Bipyramid',
+      faces: '6 triangles',
+      preset: 'regularBipyramid',
+      ringSides: 3
+    },
+    {
+      key: 'pentBipyramid',
+      label: 'Pentagonal Bipyramid',
+      faces: '10 triangles',
+      preset: 'regularBipyramid',
+      ringSides: 5
+    }
   ];
 
   const POLYHEDRON_FAMILY_OPTIONS: PolyhedronFamilyOption[] = [
-    { value: 'regularPrism', label: 'Regular N-gon Prism', faces: '2 n-gons + n squares', minSides: 3, maxSides: 64, defaultSides: 6 },
-    { value: 'regularAntiprism', label: 'Regular N-gon Antiprism', faces: '2 n-gons + 2n triangles', minSides: 3, maxSides: 64, defaultSides: 6 },
-    { value: 'regularBipyramid', label: 'Regular N-gon Bipyramid', faces: '2n triangles', minSides: 3, maxSides: 5, defaultSides: 5 }
+    {
+      value: 'regularPrism',
+      label: 'Regular N-gon Prism',
+      faces: '2 n-gons + n squares',
+      minSides: 3,
+      maxSides: 64,
+      defaultSides: 6
+    },
+    {
+      value: 'regularAntiprism',
+      label: 'Regular N-gon Antiprism',
+      faces: '2 n-gons + 2n triangles',
+      minSides: 3,
+      maxSides: 64,
+      defaultSides: 6
+    },
+    {
+      value: 'regularBipyramid',
+      label: 'Regular N-gon Bipyramid',
+      faces: '2n triangles',
+      minSides: 3,
+      maxSides: 5,
+      defaultSides: 5
+    }
   ];
-
-  function isFamilyPreset(preset: PolyhedronPreset): preset is PolyhedronFamilyPreset {
-    return preset === 'regularPrism' || preset === 'regularAntiprism' || preset === 'regularBipyramid';
-  }
-
-  function familyOptionForPreset(preset: PolyhedronFamilyPreset): PolyhedronFamilyOption {
-    return POLYHEDRON_FAMILY_OPTIONS.find((option) => option.value === preset) ?? POLYHEDRON_FAMILY_OPTIONS[0];
-  }
-
-  function clampSidesForPreset(preset: PolyhedronPreset, ringSides?: number): number {
-    if (!isFamilyPreset(preset)) {
-      return 6;
-    }
-
-    const family = familyOptionForPreset(preset);
-    const value = Math.floor(Number(ringSides) || family.defaultSides);
-    return Math.max(family.minSides, Math.min(family.maxSides, value));
-  }
-
-  function deriveFaceMode(preset: PolyhedronPreset, ringSides: number): 'uniform' | 'mixed' {
-    if (preset === 'cuboctahedron' || preset === 'truncatedOctahedron') {
-      return 'mixed';
-    }
-    if (preset === 'regularPrism') {
-      return ringSides === 4 ? 'uniform' : 'mixed';
-    }
-    if (preset === 'regularAntiprism') {
-      return ringSides === 3 ? 'uniform' : 'mixed';
-    }
-    if (preset === 'regularBipyramid') {
-      return 'uniform';
-    }
-    return 'uniform';
-  }
 
   const initialPolyhedron: PolyhedronDefinition = {
     preset: 'cube',
@@ -207,38 +170,29 @@
     topSegments: 6
   };
 
-  let shapeDefinition = { ...initialShapeDefinition };
-  let exportFormats: ExportFormat[] = ['svg'];
-  let svgLayers = ['cut', 'score', 'guide'];
-
-  let creating = false;
-  let historyLoading = false;
-  let projectsLoading = false;
-  let revisionsLoading = false;
-  let jobId = '';
-  let status: JobStatus | 'idle' = 'idle';
-  let error = '';
-  let svgUrl = '';
-
-  let projects: Project[] = [];
-  let selectedProjectId = '';
-  let revisions: Revision[] = [];
-  let selectedParentRevisionId = '';
-  let newProjectName = '';
-  let projectSummary: ProjectSummary | null = null;
-
-  let history: JobsListResponse['jobs'] = [];
-  let onlySelectedProject = false;
+  let shapeDefinition: ShapeDefinition = { ...initialShapeDefinition };
   let builderMode: ShapeBuilderMode = 'legacy';
   let polyhedronInputMode: PolyhedronInputMode = 'catalog';
   let selectedCatalogKey = 'cube';
   let selectedFamilyPreset: PolyhedronFamilyPreset = 'regularPrism';
   let useSplitEdges = false;
+
+  let exportFormats: ExportFormat[] = ['svg'];
+  let svgLayers: SvgLayer[] = ['cut', 'score', 'guide'];
+
+  let generating = false;
+  let error = '';
+  let generatedGeometry: CanonicalGeometry | null = null;
+  let generatedArtifacts: Partial<Record<ExportFormat, string>> = {};
+  let generatedAt = '';
+  let svgPreviewUrl = '';
+
   let yaw = -0.7;
   let pitch = 0.45;
   let rotating = false;
   let lastPointerX = 0;
   let lastPointerY = 0;
+
   let templateZoom = 1;
   let templateRotation = 0;
   let templatePanX = 0;
@@ -249,32 +203,88 @@
 
   $: baseSegments = Math.max(3, Math.floor(shapeDefinition.segments || 3));
   $: normalizedPolyhedron = normalizePolyhedron(shapeDefinition.polyhedron);
-  $: activeFamily = isFamilyPreset(normalizedPolyhedron.preset) ? familyOptionForPreset(normalizedPolyhedron.preset) : null;
+  $: activeFamily = isFamilyPreset(normalizedPolyhedron.preset)
+    ? familyOptionForPreset(normalizedPolyhedron.preset)
+    : null;
   $: resolvedShapeDefinition = {
     ...shapeDefinition,
     generationMode: builderMode,
     polyhedron: builderMode === 'polyhedron' ? normalizedPolyhedron : shapeDefinition.polyhedron,
     segments: baseSegments,
-    bottomSegments: useSplitEdges ? Math.max(3, Math.floor(shapeDefinition.bottomSegments || baseSegments)) : baseSegments,
-    topSegments: useSplitEdges ? Math.max(1, Math.floor(shapeDefinition.topSegments || baseSegments)) : baseSegments
-  };
+    bottomSegments: useSplitEdges
+      ? Math.max(3, Math.floor(shapeDefinition.bottomSegments || baseSegments))
+      : baseSegments,
+    topSegments: useSplitEdges
+      ? Math.max(1, Math.floor(shapeDefinition.topSegments || baseSegments))
+      : baseSegments
+  } as ShapeDefinition;
   $: liveTemplate = buildTemplatePreview(resolvedShapeDefinition);
   $: liveSolid = buildSolidPreview(resolvedShapeDefinition, { yaw, pitch });
   $: templateTransform = `translate(${templatePanX.toFixed(3)} ${templatePanY.toFixed(3)}) translate(${(
     liveTemplate.width / 2
-  ).toFixed(3)} ${(liveTemplate.height / 2).toFixed(3)}) rotate(${templateRotation.toFixed(3)}) scale(${templateZoom.toFixed(
-    4
-  )}) translate(${(-liveTemplate.width / 2).toFixed(3)} ${(-liveTemplate.height / 2).toFixed(3)})`;
+  ).toFixed(3)} ${(liveTemplate.height / 2).toFixed(3)}) rotate(${templateRotation.toFixed(
+    3
+  )}) scale(${templateZoom.toFixed(4)}) translate(${(-liveTemplate.width / 2).toFixed(3)} ${(
+    -liveTemplate.height / 2
+  ).toFixed(3)})`;
   $: effectiveBottomSegments = resolvedShapeDefinition.bottomSegments;
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
+  $: generatedFormats = (['svg', 'pdf', 'stl'] as const).filter((format) =>
+    Boolean(generatedArtifacts[format])
+  );
 
-  $: visibleHistory = onlySelectedProject && selectedProjectId
-    ? history.filter((job) => job.projectId === selectedProjectId)
-    : history;
+  onDestroy(() => {
+    revokeSvgPreviewUrl();
+  });
 
-  function normalizePolyhedron(polyhedron?: Partial<PolyhedronDefinition>): PolyhedronDefinition {
+  function isFamilyPreset(preset: PolyhedronPreset): preset is PolyhedronFamilyPreset {
+    return (
+      preset === 'regularPrism' ||
+      preset === 'regularAntiprism' ||
+      preset === 'regularBipyramid'
+    );
+  }
+
+  function familyOptionForPreset(preset: PolyhedronFamilyPreset): PolyhedronFamilyOption {
+    return (
+      POLYHEDRON_FAMILY_OPTIONS.find((option) => option.value === preset) ??
+      POLYHEDRON_FAMILY_OPTIONS[0]
+    );
+  }
+
+  function clampSidesForPreset(preset: PolyhedronPreset, ringSides?: number): number {
+    if (!isFamilyPreset(preset)) {
+      return 6;
+    }
+
+    const family = familyOptionForPreset(preset);
+    const value = Math.floor(Number(ringSides) || family.defaultSides);
+    return Math.max(family.minSides, Math.min(family.maxSides, value));
+  }
+
+  function deriveFaceMode(
+    preset: PolyhedronPreset,
+    ringSides: number
+  ): PolyhedronDefinition['faceMode'] {
+    if (preset === 'cuboctahedron' || preset === 'truncatedOctahedron') {
+      return 'mixed';
+    }
+    if (preset === 'regularPrism') {
+      return ringSides === 4 ? 'uniform' : 'mixed';
+    }
+    if (preset === 'regularAntiprism') {
+      return ringSides === 3 ? 'uniform' : 'mixed';
+    }
+    return 'uniform';
+  }
+
+  function normalizePolyhedron(
+    polyhedron?: Partial<PolyhedronDefinition>
+  ): PolyhedronDefinition {
     const merged = { ...initialPolyhedron, ...polyhedron };
-    const preset = POLYHEDRON_ALL_PRESETS.includes((merged.preset as PolyhedronPreset) ?? 'cube')
+    const preset = POLYHEDRON_ALL_PRESETS.includes(
+      (merged.preset as PolyhedronPreset) ?? 'cube'
+    )
       ? (merged.preset as PolyhedronPreset)
       : 'cube';
     const ringSides = clampSidesForPreset(preset, merged.ringSides);
@@ -286,10 +296,12 @@
     };
   }
 
-  function syncPolyhedronUiState(polyhedron?: Partial<PolyhedronDefinition>) {
+  function syncPolyhedronUiState(polyhedron?: Partial<PolyhedronDefinition>): void {
     const normalized = normalizePolyhedron(polyhedron);
     const match = POLYHEDRON_CATALOG_OPTIONS.find(
-      (option) => option.preset === normalized.preset && (option.ringSides ?? undefined) === (normalized.ringSides ?? undefined)
+      (option) =>
+        option.preset === normalized.preset &&
+        (option.ringSides ?? undefined) === (normalized.ringSides ?? undefined)
     );
 
     if (match) {
@@ -308,8 +320,10 @@
     selectedCatalogKey = 'cube';
   }
 
-  function applyCatalogSelection(key: string) {
-    const option = POLYHEDRON_CATALOG_OPTIONS.find((entry) => entry.key === key) ?? POLYHEDRON_CATALOG_OPTIONS[0];
+  function applyCatalogSelection(key: string): void {
+    const option =
+      POLYHEDRON_CATALOG_OPTIONS.find((entry) => entry.key === key) ??
+      POLYHEDRON_CATALOG_OPTIONS[0];
     selectedCatalogKey = option.key;
     polyhedronInputMode = 'catalog';
     shapeDefinition = {
@@ -322,7 +336,7 @@
     };
   }
 
-  function applyFamilyPreset(preset: PolyhedronFamilyPreset) {
+  function applyFamilyPreset(preset: PolyhedronFamilyPreset): void {
     const family = familyOptionForPreset(preset);
     selectedFamilyPreset = family.value;
     polyhedronInputMode = 'family';
@@ -336,318 +350,122 @@
     };
   }
 
-  function setBuilderMode(mode: ShapeBuilderMode) {
+  function setBuilderMode(mode: ShapeBuilderMode): void {
     builderMode = mode;
     if (mode === 'polyhedron') {
-      shapeDefinition = { ...shapeDefinition, generationMode: mode, polyhedron: normalizePolyhedron(shapeDefinition.polyhedron) };
-      syncPolyhedronUiState(shapeDefinition.polyhedron);
+      shapeDefinition = {
+        ...shapeDefinition,
+        generationMode: mode,
+        polyhedron: normalizePolyhedron(shapeDefinition.polyhedron)
+      };
       useSplitEdges = false;
+      syncPolyhedronUiState(shapeDefinition.polyhedron);
       return;
     }
 
     shapeDefinition = { ...shapeDefinition, generationMode: mode };
   }
 
-  async function loadProjects() {
-    projectsLoading = true;
-    try {
-      const response = await fetch('/api/projects');
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? 'Failed to load projects');
-
-      projects = data.projects;
-      if (!selectedProjectId && projects.length > 0) {
-        selectedProjectId = projects[0].id;
-        await loadRevisions(selectedProjectId);
-        await loadProjectSummary(selectedProjectId);
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Project load failed';
-    } finally {
-      projectsLoading = false;
-    }
-  }
-
-  async function createProject() {
-    if (!newProjectName.trim()) return;
-
-    try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newProjectName.trim() })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? 'Failed to create project');
-
-      newProjectName = '';
-      await loadProjects();
-      selectedProjectId = data.id;
-      await loadRevisions(selectedProjectId);
-      await loadProjectSummary(selectedProjectId);
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Project create failed';
-    }
-  }
-
-  async function loadRevisions(projectId: string) {
-    if (!projectId) {
-      revisions = [];
-      return;
-    }
-
-    revisionsLoading = true;
-    try {
-      const response = await fetch(`/api/projects/${projectId}/revisions`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? 'Failed to load revisions');
-
-      revisions = data.revisions;
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Revision load failed';
-    } finally {
-      revisionsLoading = false;
-    }
-  }
-
-  async function loadProjectSummary(projectId: string) {
-    if (!projectId) {
-      projectSummary = null;
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/projects/${projectId}`);
-      const data = (await response.json()) as ProjectSummary;
-      if (!response.ok) throw new Error((data as { message?: string }).message ?? 'Failed to load project');
-      projectSummary = data;
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Project summary load failed';
-    }
-  }
-
-  async function loadHistory() {
-    historyLoading = true;
-
-    try {
-      const response = await fetch('/api/jobs');
-      const data = (await response.json()) as JobsListResponse;
-      if (!response.ok) {
-        throw new Error('Failed to load history');
-      }
-
-      history = data.jobs;
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'History load failed';
-    } finally {
-      historyLoading = false;
-    }
-  }
-
-  function normalizeShapeDefinition(input: Partial<ShapeDefinition>): ShapeDefinition {
-    const merged = { ...initialShapeDefinition, ...input };
-    const base = Math.max(3, Math.floor(merged.segments || 3));
-    return {
-      ...merged,
-      generationMode: merged.generationMode ?? 'legacy',
-      polyhedron: normalizePolyhedron(merged.polyhedron),
-      segments: base,
-      bottomSegments: Math.max(3, Math.floor(merged.bottomSegments || base)),
-      topSegments: Math.max(1, Math.floor(merged.topSegments || base))
-    };
-  }
-
-  function loadParamsFromJob(job: JobsListResponse['jobs'][number]) {
-    const normalized = normalizeShapeDefinition(job.shapeDefinition);
-    shapeDefinition = normalized;
-    builderMode = normalized.generationMode ?? 'legacy';
-    if (builderMode === 'polyhedron') {
-      syncPolyhedronUiState(normalized.polyhedron);
-    }
-    useSplitEdges =
-      normalized.bottomSegments !== normalized.segments || normalized.topSegments !== normalized.segments;
-    selectedProjectId = job.projectId;
-    selectedParentRevisionId = job.revisionId;
-    loadRevisions(job.projectId);
-    loadProjectSummary(job.projectId);
-  }
-
-  async function forkJob(sourceJobId: string) {
-    error = '';
-
-    try {
-      const response = await fetch(`/api/jobs/${sourceJobId}/fork`, {
-        method: 'POST'
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message ?? 'Failed to fork job');
-      }
-
-      jobId = data.jobId;
-      status = data.status;
-      selectedProjectId = data.projectId;
-      selectedParentRevisionId = data.revisionId;
-      svgUrl = '';
-      pollJob();
-      loadHistory();
-      loadRevisions(selectedProjectId);
-      loadProjectSummary(selectedProjectId);
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Fork failed';
-    }
-  }
-
-  async function cancelJob(targetJobId: string) {
-    try {
-      const response = await fetch(`/api/jobs/${targetJobId}/cancel`, { method: 'POST' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? 'Cancel failed');
-      await loadHistory();
-      if (targetJobId === jobId) {
-        await pollJob();
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Cancel failed';
-    }
-  }
-
-  async function retryJob(targetJobId: string) {
-    try {
-      const response = await fetch(`/api/jobs/${targetJobId}/retry`, { method: 'POST' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message ?? 'Retry failed');
-
-      jobId = data.jobId;
-      status = data.status;
-      selectedProjectId = data.projectId;
-      selectedParentRevisionId = data.revisionId;
-      svgUrl = '';
-      await loadHistory();
-      await loadRevisions(selectedProjectId);
-      await loadProjectSummary(selectedProjectId);
-      await pollJob();
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Retry failed';
-    }
-  }
-
-  function toggleExport(format: ExportFormat) {
+  function toggleExport(format: ExportFormat): void {
     if (exportFormats.includes(format)) {
-      exportFormats = exportFormats.filter((f) => f !== format);
+      exportFormats = exportFormats.filter((value) => value !== format);
       return;
     }
 
     exportFormats = [...exportFormats, format];
   }
 
-  async function submitJob() {
-    if (exportFormats.length === 0) {
-      error = 'Select at least one export format';
+  function toggleSvgLayer(layer: SvgLayer): void {
+    if (svgLayers.includes(layer)) {
+      if (svgLayers.length === 1) {
+        return;
+      }
+      svgLayers = svgLayers.filter((value) => value !== layer);
       return;
     }
 
-    creating = true;
+    svgLayers = [...svgLayers, layer];
+  }
+
+  function revokeSvgPreviewUrl(): void {
+    if (!svgPreviewUrl) {
+      return;
+    }
+
+    URL.revokeObjectURL(svgPreviewUrl);
+    svgPreviewUrl = '';
+  }
+
+  function updateSvgPreview(svg?: string): void {
+    revokeSvgPreviewUrl();
+    if (!svg) {
+      return;
+    }
+
+    const blob = new Blob([svg], { type: artifactMimeType('svg') });
+    svgPreviewUrl = URL.createObjectURL(blob);
+  }
+
+  function downloadArtifact(format: ExportFormat): void {
+    const content = generatedArtifacts[format];
+    if (!content || !generatedGeometry) {
+      error = `Generate ${format.toUpperCase()} first.`;
+      return;
+    }
+
+    const blob = new Blob([content], { type: artifactMimeType(format) });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = artifactFileName(format, generatedGeometry.kind);
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAllGenerated(): void {
+    for (const format of generatedFormats) {
+      downloadArtifact(format);
+    }
+  }
+
+  function generateExports(): void {
     error = '';
-    svgUrl = '';
+    generating = true;
 
     try {
-      const response = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: selectedProjectId || undefined,
-          parentRevisionId: selectedParentRevisionId || undefined,
-          shapeDefinition: resolvedShapeDefinition,
-          exportFormats,
-          svgLayers
-        })
+      const generated = generateExportArtifacts({
+        shapeDefinition: resolvedShapeDefinition,
+        exportFormats,
+        svgLayers
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message ?? 'Failed to create job');
-      }
-
-      jobId = data.jobId;
-      status = data.status;
-      selectedProjectId = data.projectId;
-      selectedParentRevisionId = data.revisionId;
-      pollJob();
-      loadHistory();
-      loadProjects();
-      loadRevisions(data.projectId);
-      loadProjectSummary(data.projectId);
+      generatedGeometry = generated.geometry;
+      generatedArtifacts = generated.artifacts;
+      generatedAt = new Date().toLocaleString();
+      updateSvgPreview(generated.artifacts.svg);
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Unexpected error';
+      error = err instanceof Error ? err.message : 'Failed to generate exports';
+      generatedGeometry = null;
+      generatedArtifacts = {};
+      generatedAt = '';
+      updateSvgPreview(undefined);
     } finally {
-      creating = false;
+      generating = false;
     }
   }
 
-  async function pollJob() {
-    if (!jobId) return;
-
-    const pollOnce = async () => {
-      const response = await fetch(`/api/jobs/${jobId}`);
-      const data = (await response.json()) as JobResponse;
-
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Unable to fetch job status');
-      }
-
-      status = data.status;
-
-      if (status === 'failed' || status === 'cancelled') {
-        error = data.error ?? `Job ${status}`;
-        loadHistory();
-        return;
-      }
-
-      if (status === 'succeeded') {
-        if (data.artifacts?.hasSvg) {
-          svgUrl = `/api/jobs/${jobId}/svg`;
-        }
-        loadHistory();
-        return;
-      }
-
-      setTimeout(pollOnce, 800);
-    };
-
-    try {
-      await pollOnce();
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Polling failed';
-    }
-  }
-
-  onMount(() => {
-    loadProjects();
-    loadHistory();
-  });
-
-  function useRevision(revision: Revision) {
-    const normalized = normalizeShapeDefinition(revision.shapeDefinition);
-    shapeDefinition = normalized;
-    builderMode = normalized.generationMode ?? 'legacy';
-    if (builderMode === 'polyhedron') {
-      syncPolyhedronUiState(normalized.polyhedron);
-    }
-    useSplitEdges =
-      normalized.bottomSegments !== normalized.segments || normalized.topSegments !== normalized.segments;
-    selectedParentRevisionId = revision.id;
-  }
-
-  function startRotate(event: PointerEvent) {
+  function startRotate(event: PointerEvent): void {
     rotating = true;
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
   }
 
-  function onRotate(event: PointerEvent) {
-    if (!rotating) return;
+  function onRotate(event: PointerEvent): void {
+    if (!rotating) {
+      return;
+    }
 
     const dx = event.clientX - lastPointerX;
     const dy = event.clientY - lastPointerY;
@@ -657,39 +475,42 @@
     lastPointerY = event.clientY;
   }
 
-  function endRotate() {
+  function endRotate(): void {
     rotating = false;
   }
 
-  function resetView() {
+  function resetSolidView(): void {
     yaw = -0.7;
     pitch = 0.45;
   }
 
-  function zoomTemplate(factor: number) {
+  function zoomTemplate(factor: number): void {
     templateZoom = Math.max(0.2, Math.min(8, templateZoom * factor));
   }
 
-  function rotateTemplate(degrees: number) {
+  function rotateTemplate(degrees: number): void {
     templateRotation += degrees;
   }
 
-  function resetTemplateView() {
+  function resetTemplateView(): void {
     templateZoom = 1;
     templateRotation = 0;
     templatePanX = 0;
     templatePanY = 0;
   }
 
-  function startTemplatePan(event: PointerEvent) {
+  function startTemplatePan(event: PointerEvent): void {
     templatePanning = true;
     lastTemplatePointerX = event.clientX;
     lastTemplatePointerY = event.clientY;
     (event.currentTarget as SVGSVGElement).setPointerCapture(event.pointerId);
   }
 
-  function onTemplatePan(event: PointerEvent) {
-    if (!templatePanning) return;
+  function onTemplatePan(event: PointerEvent): void {
+    if (!templatePanning) {
+      return;
+    }
+
     const target = event.currentTarget as SVGSVGElement;
     const rect = target.getBoundingClientRect();
     const dxPx = event.clientX - lastTemplatePointerX;
@@ -702,84 +523,27 @@
     lastTemplatePointerY = event.clientY;
   }
 
-  function endTemplatePan(event: PointerEvent) {
+  function endTemplatePan(event: PointerEvent): void {
     templatePanning = false;
     if ((event.currentTarget as SVGSVGElement).hasPointerCapture(event.pointerId)) {
       (event.currentTarget as SVGSVGElement).releasePointerCapture(event.pointerId);
     }
   }
 
-  function onTemplateWheel(event: WheelEvent) {
+  function onTemplateWheel(event: WheelEvent): void {
     event.preventDefault();
     zoomTemplate(event.deltaY < 0 ? 1.08 : 0.92);
   }
 </script>
 
 <svelte:head>
-  <title>Pottery Pattern CAD</title>
+  <title>Pottery Pattern CAD (Stateless)</title>
 </svelte:head>
 
 <main>
   <section class="card">
     <h1>Pottery Pattern CAD</h1>
-    <p class="sub">Project + revision aware slab template generation</p>
-
-    <div class="row">
-      <input placeholder="New project name" bind:value={newProjectName} />
-      <button class="small" on:click={createProject}>Create</button>
-    </div>
-
-    <label>Project
-      <select
-        bind:value={selectedProjectId}
-        on:change={() => {
-          loadRevisions(selectedProjectId);
-          loadProjectSummary(selectedProjectId);
-        }}
-      >
-        <option value="">Auto-create project</option>
-        {#each projects as project}
-          <option value={project.id}>{project.name}</option>
-        {/each}
-      </select>
-    </label>
-
-    <label>Parent Revision
-      <select bind:value={selectedParentRevisionId} disabled={!selectedProjectId || revisionsLoading}>
-        <option value="">None</option>
-        {#each revisions as revision}
-          <option value={revision.id}>{revision.id.slice(0, 8)} • {new Date(revision.createdAt).toLocaleString()}</option>
-        {/each}
-      </select>
-    </label>
-
-    {#if projectSummary}
-      <div class="project-summary">
-        <div><strong>{projectSummary.project.name}</strong></div>
-        <div class="muted">Revisions: {projectSummary.revisionsCount} • Jobs: {projectSummary.jobsCount}</div>
-        {#if projectSummary.latestJob}
-          <div class="muted">
-            Latest job: {projectSummary.latestJob.jobId.slice(0, 8)} ({projectSummary.latestJob.status})
-          </div>
-        {/if}
-        <div style="margin-top:0.35rem;">
-          <a href={`/projects/${projectSummary.project.id}`} class="small link">Open Project Page</a>
-        </div>
-      </div>
-    {/if}
-
-    {#if revisions.length > 0}
-      <div class="revisions-panel">
-        <div class="muted">Recent revisions</div>
-        <div class="revisions-list">
-          {#each revisions.slice(0, 6) as revision}
-            <button class="small rev-btn" on:click={() => useRevision(revision)}>
-              {revision.id.slice(0, 8)} • H{revision.shapeDefinition.height} BW{revision.shapeDefinition.bottomWidth}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/if}
+    <p class="sub">Browser-first and stateless. Refreshing the page clears session state.</p>
 
     <div class="builder-tabs">
       <button
@@ -857,7 +621,11 @@
       <div class="grid">
         {#if polyhedronInputMode === 'catalog'}
           <label>Template Catalog
-            <select value={selectedCatalogKey} on:change={(event) => applyCatalogSelection((event.currentTarget as HTMLSelectElement).value)}>
+            <select
+              value={selectedCatalogKey}
+              on:change={(event) =>
+                applyCatalogSelection((event.currentTarget as HTMLSelectElement).value)}
+            >
               {#each POLYHEDRON_CATALOG_OPTIONS as option}
                 <option value={option.key}>{option.label} ({option.faces})</option>
               {/each}
@@ -865,13 +633,20 @@
           </label>
         {:else}
           <label>Family
-            <select value={selectedFamilyPreset} on:change={(event) => applyFamilyPreset((event.currentTarget as HTMLSelectElement).value as PolyhedronFamilyPreset)}>
+            <select
+              value={selectedFamilyPreset}
+              on:change={(event) =>
+                applyFamilyPreset(
+                  (event.currentTarget as HTMLSelectElement).value as PolyhedronFamilyPreset
+                )}
+            >
               {#each POLYHEDRON_FAMILY_OPTIONS as family}
                 <option value={family.value}>{family.label} ({family.faces})</option>
               {/each}
             </select>
           </label>
         {/if}
+
         <label>Face Edge Length
           <input
             type="number"
@@ -890,6 +665,7 @@
             }}
           />
         </label>
+
         {#if polyhedronInputMode === 'family' && activeFamily}
           <label>N-gon Sides
             <input
@@ -911,16 +687,22 @@
             />
           </label>
         {/if}
+
         <label>Face Composition
-          <input value={normalizedPolyhedron.faceMode === 'uniform' ? 'Uniform (single face type)' : 'Mixed face types'} disabled />
+          <input
+            value={
+              normalizedPolyhedron.faceMode === 'uniform'
+                ? 'Uniform (single face type)'
+                : 'Mixed face types'
+            }
+            disabled
+          />
         </label>
       </div>
+
       <p class="muted">
-        Catalog exposes only vetted solids. Family mode constrains side counts to valid ranges per family.
+        Catalog exposes vetted solids. Family mode constrains side counts to valid ranges.
       </p>
-      {#if normalizedPolyhedron.preset === 'regularPrism' && normalizedPolyhedron.ringSides === 6}
-        <p class="muted">This is the hexagon + square case.</p>
-      {/if}
     {/if}
 
     <div class="grid fabrication-grid">
@@ -945,19 +727,54 @@
       </label>
     </div>
 
-    <div class="formats">
-      <label><input type="checkbox" checked={exportFormats.includes('svg')} on:change={() => toggleExport('svg')} /> SVG</label>
-      <label><input type="checkbox" checked={exportFormats.includes('pdf')} on:change={() => toggleExport('pdf')} /> PDF</label>
-      <label><input type="checkbox" checked={exportFormats.includes('stl')} on:change={() => toggleExport('stl')} /> STL</label>
+    <div class="config-group">
+      <div class="config-title">Export Formats</div>
+      <div class="formats">
+        <label><input type="checkbox" checked={exportFormats.includes('svg')} on:change={() => toggleExport('svg')} /> SVG</label>
+        <label><input type="checkbox" checked={exportFormats.includes('pdf')} on:change={() => toggleExport('pdf')} /> PDF</label>
+        <label><input type="checkbox" checked={exportFormats.includes('stl')} on:change={() => toggleExport('stl')} /> STL</label>
+      </div>
     </div>
 
-    <button on:click={submitJob} disabled={creating || projectsLoading}>
-      {creating ? 'Submitting...' : 'Generate Export Job'}
+    <div class="config-group">
+      <div class="config-title">2D Layers (SVG/PDF)</div>
+      <div class="formats">
+        <label><input type="checkbox" checked={svgLayers.includes('cut')} on:change={() => toggleSvgLayer('cut')} /> Cut</label>
+        <label><input type="checkbox" checked={svgLayers.includes('score')} on:change={() => toggleSvgLayer('score')} /> Score</label>
+        <label><input type="checkbox" checked={svgLayers.includes('guide')} on:change={() => toggleSvgLayer('guide')} /> Guide</label>
+      </div>
+    </div>
+
+    <button on:click={generateExports} disabled={generating}>
+      {generating ? 'Generating...' : 'Generate Files'}
     </button>
 
-    {#if jobId}
-      <p><strong>Job:</strong> {jobId}</p>
-      <p><strong>Status:</strong> {status}</p>
+    {#if generatedGeometry}
+      <div class="output-summary">
+        <div><strong>Last Generated:</strong> {generatedAt}</div>
+        <div class="muted">
+          Kind: {generatedGeometry.kind} • Faces: {generatedGeometry.metrics.faceCount} •
+          Surface Area: {generatedGeometry.metrics.surfaceArea.toFixed(2)}
+        </div>
+        <div class="actions-row">
+          {#each generatedFormats as format}
+            <button class="small" on:click={() => downloadArtifact(format)}>
+              Download {format.toUpperCase()}
+            </button>
+          {/each}
+          {#if generatedFormats.length > 1}
+            <button class="small" on:click={downloadAllGenerated}>Download All</button>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
+    {#if generatedGeometry?.warnings.length}
+      <div class="warnings">
+        {#each generatedGeometry.warnings as warning}
+          <p class="error">{warning}</p>
+        {/each}
+      </div>
     {/if}
 
     {#if error}
@@ -965,71 +782,24 @@
     {/if}
   </section>
 
-  <section class="card history">
-    <div class="history-head">
-      <h2>Job History</h2>
-      <div class="history-tools">
-        <label class="tiny-toggle">
-          <input type="checkbox" bind:checked={onlySelectedProject} />
-          This project
-        </label>
-        <button class="small" on:click={loadHistory} disabled={historyLoading}>
-          {historyLoading ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
-    </div>
-
-    {#if visibleHistory.length === 0}
-      <p>No jobs yet.</p>
-    {:else}
-      <div class="history-list">
-        {#each visibleHistory as job}
-          <article class="history-item">
-            <div>
-              <strong>{job.status}</strong>
-              <div class="muted">{job.jobId.slice(0, 8)} • {new Date(job.createdAt).toLocaleString()}</div>
-              <div class="muted">Proj {job.projectId.slice(0, 8)} • Rev {job.revisionId.slice(0, 8)}</div>
-            </div>
-            <div class="actions">
-              <button class="small" on:click={() => loadParamsFromJob(job)}>Load Params</button>
-              <button class="small" on:click={() => forkJob(job.jobId)}>Fork</button>
-              {#if job.status === 'queued' || job.status === 'running'}
-                <button class="small" on:click={() => cancelJob(job.jobId)}>Cancel</button>
-              {/if}
-              {#if job.status === 'failed' || job.status === 'cancelled'}
-                <button class="small" on:click={() => retryJob(job.jobId)}>Retry</button>
-              {/if}
-              {#if job.artifacts?.hasSvg}
-                <a class="small link" href={`/api/jobs/${job.jobId}/svg`} target="_blank" rel="noreferrer">SVG</a>
-              {/if}
-              {#if job.artifacts?.hasPdf}
-                <a class="small link" href={`/api/jobs/${job.jobId}/pdf`} target="_blank" rel="noreferrer">PDF</a>
-              {/if}
-              {#if job.artifacts?.hasStl}
-                <a class="small link" href={`/api/jobs/${job.jobId}/stl`} target="_blank" rel="noreferrer">STL</a>
-              {/if}
-            </div>
-          </article>
-        {/each}
-      </div>
-    {/if}
-  </section>
-
   <section class="card preview">
     <h2>Live Preview</h2>
-    <p class="muted">2D and 3D update together from the current parameters.</p>
+    <p class="muted">2D and 3D update from current parameters.</p>
+
     {#if builderMode === 'polyhedron'}
       <p class="muted">
-        Polyhedron preset: {normalizedPolyhedron.preset}
+        Polyhedron: {normalizedPolyhedron.preset}
         {#if isFamilyPreset(normalizedPolyhedron.preset)}
           • sides: {normalizedPolyhedron.ringSides}
         {/if}
         • face mode: {normalizedPolyhedron.faceMode}
       </p>
     {:else if useSplitEdges}
-      <p class="muted">Live preview uses bottom/top edge counts ({effectiveBottomSegments}/{effectiveTopSegments}).</p>
+      <p class="muted">
+        Split edges active ({effectiveBottomSegments}/{effectiveTopSegments}).
+      </p>
     {:else}
-      <p class="muted">Split edges are off, so both ends use {baseSegments} edges.</p>
+      <p class="muted">Both ends use {baseSegments} edges.</p>
     {/if}
 
     <div class="preview-dual">
@@ -1039,11 +809,12 @@
           <div class="view-controls">
             <button class="small" type="button" on:click={() => zoomTemplate(1.2)} aria-label="Zoom in">+</button>
             <button class="small" type="button" on:click={() => zoomTemplate(1 / 1.2)} aria-label="Zoom out">-</button>
-            <button class="small" type="button" on:click={() => rotateTemplate(-15)} aria-label="Rotate left">⟲</button>
-            <button class="small" type="button" on:click={() => rotateTemplate(15)} aria-label="Rotate right">⟳</button>
+            <button class="small" type="button" on:click={() => rotateTemplate(-15)} aria-label="Rotate left">L</button>
+            <button class="small" type="button" on:click={() => rotateTemplate(15)} aria-label="Rotate right">R</button>
             <button class="small" type="button" on:click={resetTemplateView}>Reset</button>
           </div>
         </div>
+
         <svg
           viewBox={`0 0 ${liveTemplate.width.toFixed(3)} ${liveTemplate.height.toFixed(3)}`}
           role="img"
@@ -1061,13 +832,15 @@
             {/each}
           </g>
         </svg>
-        <div class="muted">Drag to pan. Mouse wheel to zoom. Rotate using ⟲ / ⟳.</div>
+        <div class="muted">Drag to pan. Mouse wheel to zoom.</div>
       </div>
+
       <div class="preview-pane">
         <div class="preview-pane-head">
           <h3>3D Form</h3>
-          <button class="small" type="button" on:click={resetView}>Reset View</button>
+          <button class="small" type="button" on:click={resetSolidView}>Reset View</button>
         </div>
+
         <svg
           viewBox={`0 0 ${liveSolid.width.toFixed(3)} ${liveSolid.height.toFixed(3)}`}
           role="img"
@@ -1091,12 +864,11 @@
       </div>
     </div>
 
-    <h2>Exported SVG</h2>
-    {#if svgUrl}
-      <a href={svgUrl} target="_blank" rel="noreferrer">Open SVG</a>
-      <object data={svgUrl} type="image/svg+xml" aria-label="Generated SVG template"></object>
+    <h2>Generated SVG Preview</h2>
+    {#if svgPreviewUrl}
+      <object data={svgPreviewUrl} type="image/svg+xml" aria-label="Generated SVG template"></object>
     {:else}
-      <p>No SVG yet. Submit or fork a job and wait for completion.</p>
+      <p>No SVG generated yet.</p>
     {/if}
   </section>
 </main>
@@ -1116,7 +888,6 @@
     --button-hover: #4e4e52;
     --button-text: #f9fafb;
     --accent: #2563eb;
-    --accent-soft: #1d4ed8;
     --danger: #ef4444;
     margin: 0;
     font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
@@ -1127,7 +898,7 @@
   main {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 420px 380px 1fr;
+    grid-template-columns: 420px 1fr;
     gap: 1rem;
     padding: 1rem;
   }
@@ -1140,24 +911,24 @@
     box-shadow: 0 16px 34px rgba(4, 9, 20, 0.42);
   }
 
-  .row {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.7rem;
+  h1,
+  h2,
+  h3 {
+    margin: 0;
   }
 
   h1 {
-    margin: 0;
     font-size: 1.35rem;
+  }
+
+  h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
   }
 
   .sub {
     margin-top: 0.25rem;
     color: var(--muted);
-  }
-
-  a {
-    color: #93c5fd;
   }
 
   .grid {
@@ -1174,16 +945,18 @@
   .builder-tabs {
     display: flex;
     gap: 0.5rem;
-    margin-top: 0.8rem;
+    margin-top: 0.9rem;
   }
 
-  .builder-tabs button {
+  .builder-tabs button,
+  .poly-subtabs button {
     background: #3e3e42;
     color: #d1d5db;
     border: 1px solid #4e4e52;
   }
 
-  .builder-tabs button.tab-active {
+  .builder-tabs button.tab-active,
+  .poly-subtabs button.tab-active {
     background: var(--accent);
     color: #ffffff;
     border-color: var(--accent);
@@ -1196,50 +969,21 @@
     margin-bottom: 0.15rem;
   }
 
-  .poly-subtabs button {
-    background: #3e3e42;
-    color: #d1d5db;
-    border: 1px solid #4e4e52;
+  .config-group {
+    margin: 0.75rem 0;
   }
 
-  .poly-subtabs button.tab-active {
-    background: var(--accent);
-    color: #ffffff;
-    border-color: var(--accent);
+  .config-title {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
   }
 
   .formats {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.8rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .revisions-panel {
-    border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 0.55rem 0.65rem;
-    margin-bottom: 0.75rem;
-    background: var(--panel);
-  }
-
-  .revisions-list {
-    margin-top: 0.4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .rev-btn {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .project-summary {
-    border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 0.55rem 0.65rem;
-    margin-bottom: 0.75rem;
-    background: var(--panel);
+    margin-bottom: 0.2rem;
   }
 
   label {
@@ -1248,6 +992,14 @@
     gap: 0.25rem;
     font-size: 0.9rem;
     margin-bottom: 0.45rem;
+  }
+
+  .formats label,
+  .split-toggle {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
   }
 
   input,
@@ -1265,8 +1017,7 @@
     color: #8ea2c5;
   }
 
-  button,
-  .small.link {
+  button {
     border: 1px solid #4e4e52;
     background: var(--button);
     color: var(--button-text);
@@ -1274,14 +1025,12 @@
     padding: 0.62rem 0.85rem;
     font-size: 0.88rem;
     cursor: pointer;
-    text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
 
-  button:hover,
-  .small.link:hover {
+  button:hover {
     background: var(--button-hover);
   }
 
@@ -1295,75 +1044,36 @@
     cursor: not-allowed;
   }
 
-  .error {
-    color: var(--danger);
-  }
-
-  .history-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.4rem;
-  }
-
-  .history-tools {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .tiny-toggle {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.25rem;
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--muted);
-  }
-
-  .split-toggle {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 0.2rem;
-  }
-
-  .history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    max-height: 78vh;
-    overflow: auto;
-  }
-
-  .history-item {
-    border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 0.6rem;
-    display: flex;
-    justify-content: space-between;
-    gap: 0.55rem;
-  }
-
   .muted {
     color: var(--muted);
     font-size: 0.77rem;
   }
 
-  .actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.36rem;
-    min-width: 86px;
+  .error {
+    color: var(--danger);
   }
 
-  .preview object {
-    width: 100%;
-    height: 46vh;
+  .output-summary {
     border: 1px solid var(--card-border);
     border-radius: 10px;
-    margin-top: 0.5rem;
-    background: #1e1e1e;
+    padding: 0.6rem;
+    margin-top: 0.75rem;
+    background: var(--panel);
+  }
+
+  .actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.45rem;
+  }
+
+  .warnings {
+    margin-top: 0.6rem;
+  }
+
+  .warnings p {
+    margin: 0.25rem 0;
   }
 
   .preview-dual {
@@ -1382,7 +1092,7 @@
   }
 
   .preview-pane h3 {
-    margin: 0 0 0.4rem 0;
+    margin: 0;
     font-size: 0.87rem;
     color: #f3f4f6;
   }
@@ -1414,12 +1124,18 @@
     user-select: none;
   }
 
-  .preview-pane svg.rotating-active {
+  .preview-pane svg.rotating-active,
+  .preview-pane svg.template-panning-active {
     cursor: grabbing;
   }
 
-  .preview-pane svg.template-panning-active {
-    cursor: grabbing;
+  .preview object {
+    width: 100%;
+    height: 46vh;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    margin-top: 0.5rem;
+    background: #1e1e1e;
   }
 
   .layer-cut {
@@ -1432,14 +1148,12 @@
     fill: none;
     stroke: #2563eb;
     stroke-width: 1.1;
-    stroke-dasharray: none;
   }
 
   .layer-guide {
     fill: none;
     stroke: #2563eb;
     stroke-width: 1.1;
-    stroke-dasharray: none;
   }
 
   .solid-face {
@@ -1453,16 +1167,12 @@
       grid-template-columns: 1fr;
     }
 
-    .history-list {
-      max-height: 42vh;
+    .preview-dual {
+      grid-template-columns: 1fr;
     }
 
     .preview object {
       height: 42vh;
-    }
-
-    .preview-dual {
-      grid-template-columns: 1fr;
     }
   }
 </style>

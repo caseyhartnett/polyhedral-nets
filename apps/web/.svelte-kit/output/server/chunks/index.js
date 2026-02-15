@@ -1,6 +1,31 @@
-import { l as escape_html, n as noop, m as set_ssr_context, p as ssr_context, q as push, t as pop } from "./context.js";
 import { clsx as clsx$1 } from "clsx";
 import * as devalue from "devalue";
+var is_array = Array.isArray;
+var index_of = Array.prototype.indexOf;
+var includes = Array.prototype.includes;
+var array_from = Array.from;
+var define_property = Object.defineProperty;
+var get_descriptor = Object.getOwnPropertyDescriptor;
+var object_prototype = Object.prototype;
+var array_prototype = Array.prototype;
+var get_prototype_of = Object.getPrototypeOf;
+var is_extensible = Object.isExtensible;
+const noop = () => {
+};
+function run_all(arr) {
+  for (var i = 0; i < arr.length; i++) {
+    arr[i]();
+  }
+}
+function deferred() {
+  var resolve;
+  var reject;
+  var promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 const DERIVED = 1 << 1;
 const EFFECT = 1 << 2;
 const RENDER_EFFECT = 1 << 3;
@@ -32,6 +57,11 @@ const STALE_REACTION = new class StaleReactionError extends Error {
   message = "The reaction that called `getAbortSignal()` was re-run or destroyed";
 }();
 const COMMENT_NODE = 8;
+function lifecycle_outside_component(name) {
+  {
+    throw new Error(`https://svelte.dev/e/lifecycle_outside_component`);
+  }
+}
 const HYDRATION_START = "[";
 const HYDRATION_START_ELSE = "[!";
 const HYDRATION_END = "]";
@@ -76,6 +106,22 @@ function is_boolean_attribute(name) {
 const PASSIVE_EVENTS = ["touchstart", "touchmove"];
 function is_passive_event(name) {
   return PASSIVE_EVENTS.includes(name);
+}
+const ATTR_REGEX = /[&"<]/g;
+const CONTENT_REGEX = /[&<]/g;
+function escape_html(value, is_attr) {
+  const str = String(value ?? "");
+  const pattern = is_attr ? ATTR_REGEX : CONTENT_REGEX;
+  pattern.lastIndex = 0;
+  let escaped = "";
+  let last = 0;
+  while (pattern.test(str)) {
+    const i = pattern.lastIndex - 1;
+    const ch = str[i];
+    escaped += str.substring(last, i) + (ch === "&" ? "&amp;" : ch === '"' ? "&quot;" : "&lt;");
+    last = i + 1;
+  }
+  return escaped + str.substring(last);
 }
 const replacements = {
   translate: /* @__PURE__ */ new Map([
@@ -246,6 +292,46 @@ Could not resolve \`render\` context.
 https://svelte.dev/e/server_context_required`);
   error.name = "Svelte error";
   throw error;
+}
+var ssr_context = null;
+function set_ssr_context(v) {
+  ssr_context = v;
+}
+function getContext(key) {
+  const context_map = get_or_init_context_map();
+  const result = (
+    /** @type {T} */
+    context_map.get(key)
+  );
+  return result;
+}
+function setContext(key, context) {
+  get_or_init_context_map().set(key, context);
+  return context;
+}
+function get_or_init_context_map(name) {
+  if (ssr_context === null) {
+    lifecycle_outside_component();
+  }
+  return ssr_context.c ??= new Map(get_parent_context(ssr_context) || void 0);
+}
+function push(fn) {
+  ssr_context = { p: ssr_context, c: null, r: null };
+}
+function pop() {
+  ssr_context = /** @type {SSRContext} */
+  ssr_context.p;
+}
+function get_parent_context(ssr_context2) {
+  let parent = ssr_context2.p;
+  while (parent !== null) {
+    const context_map = parent.c;
+    if (context_map !== null) {
+      return context_map;
+    }
+    parent = parent.p;
+  }
+  return null;
 }
 function unresolved_hydratable(key, stack) {
   {
@@ -952,15 +1038,6 @@ function attr_class(value, hash, directives) {
   var result = to_class(value, hash, directives);
   return result ? ` class="${escape_html(result, true)}"` : "";
 }
-function bind_props(props_parent, props_now) {
-  for (const key in props_now) {
-    const initial_value = props_parent[key];
-    const value = props_now[key];
-    if (initial_value === void 0 && value !== void 0 && Object.getOwnPropertyDescriptor(props_parent, key)?.set) {
-      props_parent[key] = value;
-    }
-  }
-}
 function ensure_array_like(array_like_or_iterator) {
   if (array_like_or_iterator) {
     return array_like_or_iterator.length !== void 0 ? array_like_or_iterator : Array.from(array_like_or_iterator);
@@ -968,44 +1045,60 @@ function ensure_array_like(array_like_or_iterator) {
   return [];
 }
 export {
+  attr_class as $,
   ASYNC as A,
   BOUNDARY_EFFECT as B,
   COMMENT_NODE as C,
   DIRTY as D,
   ERROR_VALUE as E,
-  bind_props as F,
+  get_descriptor as F,
+  get_prototype_of as G,
   HYDRATION_ERROR as H,
   INERT as I,
-  LEGACY_PROPS as L,
+  is_array as J,
+  is_extensible as K,
+  USER_EFFECT as L,
   MAYBE_DIRTY as M,
+  REACTION_IS_UPDATING as N,
+  index_of as O,
+  define_property as P,
+  array_from as Q,
   REACTION_RAN as R,
   STALE_REACTION as S,
+  is_passive_event as T,
   UNINITIALIZED as U,
+  LEGACY_PROPS as V,
   WAS_MARKED as W,
+  render as X,
+  setContext as Y,
+  ssr_context as Z,
+  head as _,
   HYDRATION_END as a,
+  attr as a0,
+  ensure_array_like as a1,
   HYDRATION_START as b,
   HYDRATION_START_ELSE as c,
   EFFECT as d,
-  CONNECTED as e,
-  CLEAN as f,
-  DERIVED as g,
-  BLOCK_EFFECT as h,
-  BRANCH_EFFECT as i,
-  ROOT_EFFECT as j,
-  RENDER_EFFECT as k,
-  MANAGED_EFFECT as l,
-  HEAD_EFFECT as m,
-  DESTROYED as n,
-  EFFECT_TRANSPARENT as o,
-  EFFECT_PRESERVED as p,
-  EAGER_EFFECT as q,
-  STATE_SYMBOL as r,
-  USER_EFFECT as s,
-  REACTION_IS_UPDATING as t,
-  is_passive_event as u,
-  render as v,
-  head as w,
-  attr as x,
-  ensure_array_like as y,
-  attr_class as z
+  escape_html as e,
+  CONNECTED as f,
+  getContext as g,
+  CLEAN as h,
+  DERIVED as i,
+  BLOCK_EFFECT as j,
+  deferred as k,
+  BRANCH_EFFECT as l,
+  ROOT_EFFECT as m,
+  noop as n,
+  RENDER_EFFECT as o,
+  MANAGED_EFFECT as p,
+  HEAD_EFFECT as q,
+  run_all as r,
+  DESTROYED as s,
+  includes as t,
+  EFFECT_TRANSPARENT as u,
+  EFFECT_PRESERVED as v,
+  EAGER_EFFECT as w,
+  STATE_SYMBOL as x,
+  object_prototype as y,
+  array_prototype as z
 };

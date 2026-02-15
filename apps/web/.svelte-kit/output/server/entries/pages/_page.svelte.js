@@ -1,5 +1,9 @@
-import { w as head, x as attr, y as ensure_array_like, z as attr_class } from "../../chunks/index.js";
-import { l as escape_html } from "../../chunks/context.js";
+import { Z as ssr_context, _ as head, $ as attr_class, a0 as attr, e as escape_html, a1 as ensure_array_like } from "../../chunks/index.js";
+import "clsx";
+function onDestroy(fn) {
+  /** @type {SSRContext} */
+  ssr_context.r.on_destroy(fn);
+}
 const TWO_PI = Math.PI * 2;
 const EPSILON = 1e-9;
 const NET_EPSILON = 1e-6;
@@ -76,6 +80,11 @@ function edgeKey(a, b) {
   const aKey = pointKey(a);
   const bKey = pointKey(b);
   return aKey < bKey ? `${aKey}|${bKey}` : `${bKey}|${aKey}`;
+}
+function edgeLength2D(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 function edgeLength3D(a, b) {
   const dx = b.x - a.x;
@@ -905,7 +914,60 @@ function buildPolyhedronNet(mesh) {
   });
   return { faces };
 }
-function buildTemplatePathsFromNet(net) {
+function pickSeamBoundaryEdge(edges) {
+  return [...edges].sort((left, right) => {
+    const lengthDiff = edgeLength2D(right.a, right.b) - edgeLength2D(left.a, left.b);
+    if (Math.abs(lengthDiff) > EPSILON) {
+      return lengthDiff;
+    }
+    const leftMidX = (left.a.x + left.b.x) / 2;
+    const rightMidX = (right.a.x + right.b.x) / 2;
+    if (Math.abs(leftMidX - rightMidX) > EPSILON) {
+      return leftMidX - rightMidX;
+    }
+    const leftMidY = (left.a.y + left.b.y) / 2;
+    const rightMidY = (right.a.y + right.b.y) / 2;
+    if (Math.abs(leftMidY - rightMidY) > EPSILON) {
+      return leftMidY - rightMidY;
+    }
+    return left.key.localeCompare(right.key);
+  })[0];
+}
+function seamNormal(a, b, netCentroid) {
+  const edge = sub2(b, a);
+  const n1 = unit2({ x: -edge.y, y: edge.x });
+  const n2 = scale2(n1, -1);
+  const midpoint = scale2(add2(a, b), 0.5);
+  const toMid = sub2(midpoint, netCentroid);
+  return dot2(toMid, n1) >= dot2(toMid, n2) ? n1 : n2;
+}
+function seamDepth(edgeLength, allowance) {
+  const defaultDepth = edgeLength * 0.08;
+  const requestedDepth = allowance > 0 ? allowance : defaultDepth;
+  const maxDepth = edgeLength * 0.35;
+  return Math.min(Math.max(requestedDepth, edgeLength * 0.03), maxDepth);
+}
+function buildOverlapFlap(a, b, normal, depth) {
+  const aOut = add2(a, scale2(normal, depth));
+  const bOut = add2(b, scale2(normal, depth));
+  return [a, aOut, bOut, b];
+}
+function buildTabbedFlap(a, b, normal, depth) {
+  const edge = sub2(b, a);
+  const length = len2(edge);
+  const along = unit2(edge);
+  const segmentCount = Math.max(4, Math.min(10, Math.round(length / 30) * 2));
+  const points = [a];
+  for (let i = 0; i <= segmentCount; i += 1) {
+    const t = i / segmentCount;
+    const base = add2(a, scale2(along, length * t));
+    const toothDepth = i === 0 || i === segmentCount ? depth : i % 2 === 0 ? depth * 0.6 : depth * 1.15;
+    points.push(add2(base, scale2(normal, toothDepth)));
+  }
+  points.push(b);
+  return points;
+}
+function buildTemplatePathsFromNet(net, seam) {
   const edgeMap = /* @__PURE__ */ new Map();
   for (const face of net.faces) {
     const pts = face.points;
@@ -917,20 +979,35 @@ function buildTemplatePathsFromNet(net) {
       if (existing) {
         existing.count += 1;
       } else {
-        edgeMap.set(key, { a, b, count: 1 });
+        edgeMap.set(key, { a, b, count: 1, key });
       }
     }
   }
+  const boundaryEdges = Array.from(edgeMap.values()).filter((edge) => edge.count === 1).map((edge) => ({ key: edge.key, a: edge.a, b: edge.b }));
   const cutEdges = [];
   const scoreEdges = [];
+  const seamEdge = seam.mode === "straight" ? void 0 : pickSeamBoundaryEdge(boundaryEdges);
   for (const edge of edgeMap.values()) {
     if (edge.count === 1) {
-      cutEdges.push(withLayer("cut", [edge.a, edge.b], false));
+      if (seamEdge && seamEdge.key === edge.key) {
+        scoreEdges.push(withLayer("score", [edge.a, edge.b], false));
+      } else {
+        cutEdges.push(withLayer("cut", [edge.a, edge.b], false));
+      }
     } else if (edge.count === 2) {
       scoreEdges.push(withLayer("score", [edge.a, edge.b], false));
     } else {
       throw new Error("Invalid net: more than two faces share the same unfolded edge");
     }
+  }
+  if (seamEdge && seam.mode !== "straight") {
+    const allPoints = net.faces.flatMap((face) => face.points);
+    const centroid = centroid2(allPoints);
+    const normal = seamNormal(seamEdge.a, seamEdge.b, centroid);
+    const length = edgeLength2D(seamEdge.a, seamEdge.b);
+    const depth = seamDepth(length, seam.allowance);
+    const flapPoints = seam.mode === "tabbed" ? buildTabbedFlap(seamEdge.a, seamEdge.b, normal, depth) : buildOverlapFlap(seamEdge.a, seamEdge.b, normal, depth);
+    cutEdges.push(withLayer("cut", flapPoints, false));
   }
   return [...cutEdges, ...scoreEdges];
 }
@@ -988,12 +1065,6 @@ function buildWarnings(def) {
   if (def.profilePoints.length > 0) {
     warnings.push("profilePoints are ignored in polygonal v2 geometry");
   }
-  if (def.seamMode !== "straight") {
-    warnings.push("seamMode is currently rendered as straight seam in polygonal v2 geometry");
-  }
-  if (def.allowance > 0 && def.seamMode !== "straight") {
-    warnings.push("allowance is not yet applied to polygonal seam flap generation");
-  }
   if (def.thickness >= def.bottomWidth / 2) {
     warnings.push("thickness is high relative to base radius; fabrication may be difficult");
   }
@@ -1013,7 +1084,7 @@ function buildShapeDebugModel(def) {
     }
     const mesh2 = buildPolyhedronMesh(polyhedron.preset, polyhedron.edgeLength, polyhedron.ringSides);
     const net2 = buildPolyhedronNet(mesh2);
-    const rawPaths2 = buildTemplatePathsFromNet(net2);
+    const rawPaths2 = buildTemplatePathsFromNet(net2, { mode: def.seamMode, allowance: def.allowance });
     const normalizedPaths2 = normalizePaths(rawPaths2, 10);
     const bounds2 = buildBounds(normalizedPaths2);
     const template2 = {
@@ -1034,7 +1105,7 @@ function buildShapeDebugModel(def) {
   }
   const mesh = buildMesh(def, counts);
   const net = buildNet(mesh, counts);
-  const rawPaths = buildTemplatePathsFromNet(net);
+  const rawPaths = buildTemplatePathsFromNet(net, { mode: def.seamMode, allowance: def.allowance });
   const normalizedPaths = normalizePaths(rawPaths, 10);
   const bounds = buildBounds(normalizedPaths);
   const template = {
@@ -1068,6 +1139,7 @@ function buildCanonicalGeometry(def) {
     warnings: shape.warnings
   };
 }
+new TextEncoder();
 function subVec(a, b) {
   return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
 }
@@ -1235,7 +1307,7 @@ function buildSolidPreview(def, camera = {}) {
 }
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
-    let baseSegments, normalizedPolyhedron, resolvedShapeDefinition, liveTemplate, liveSolid, templateTransform, visibleHistory;
+    let baseSegments, normalizedPolyhedron, resolvedShapeDefinition, liveTemplate, liveSolid, templateTransform;
     const POLYHEDRON_ALL_PRESETS = [
       "tetrahedron",
       "cube",
@@ -1274,35 +1346,6 @@ function _page($$renderer, $$props) {
         defaultSides: 5
       }
     ];
-    function isFamilyPreset(preset) {
-      return preset === "regularPrism" || preset === "regularAntiprism" || preset === "regularBipyramid";
-    }
-    function familyOptionForPreset(preset) {
-      return POLYHEDRON_FAMILY_OPTIONS.find((option) => option.value === preset) ?? POLYHEDRON_FAMILY_OPTIONS[0];
-    }
-    function clampSidesForPreset(preset, ringSides) {
-      if (!isFamilyPreset(preset)) {
-        return 6;
-      }
-      const family = familyOptionForPreset(preset);
-      const value = Math.floor(Number(ringSides) || family.defaultSides);
-      return Math.max(family.minSides, Math.min(family.maxSides, value));
-    }
-    function deriveFaceMode(preset, ringSides) {
-      if (preset === "cuboctahedron" || preset === "truncatedOctahedron") {
-        return "mixed";
-      }
-      if (preset === "regularPrism") {
-        return ringSides === 4 ? "uniform" : "mixed";
-      }
-      if (preset === "regularAntiprism") {
-        return ringSides === 3 ? "uniform" : "mixed";
-      }
-      if (preset === "regularBipyramid") {
-        return "uniform";
-      }
-      return "uniform";
-    }
     const initialPolyhedron = {
       preset: "cube",
       edgeLength: 60,
@@ -1327,18 +1370,11 @@ function _page($$renderer, $$props) {
       topSegments: 6
     };
     let shapeDefinition = { ...initialShapeDefinition };
-    let exportFormats = ["svg"];
-    let historyLoading = false;
-    let projectsLoading = false;
-    let projects = [];
-    let selectedProjectId = "";
-    let revisions = [];
-    let selectedParentRevisionId = "";
-    let newProjectName = "";
-    let history = [];
-    let onlySelectedProject = false;
     let builderMode = "legacy";
     let useSplitEdges = false;
+    let exportFormats = ["svg"];
+    let svgLayers = ["cut", "score", "guide"];
+    let generating = false;
     let yaw = -0.7;
     let pitch = 0.45;
     let rotating = false;
@@ -1347,6 +1383,34 @@ function _page($$renderer, $$props) {
     let templatePanX = 0;
     let templatePanY = 0;
     let templatePanning = false;
+    onDestroy(() => {
+    });
+    function isFamilyPreset(preset) {
+      return preset === "regularPrism" || preset === "regularAntiprism" || preset === "regularBipyramid";
+    }
+    function familyOptionForPreset(preset) {
+      return POLYHEDRON_FAMILY_OPTIONS.find((option) => option.value === preset) ?? POLYHEDRON_FAMILY_OPTIONS[0];
+    }
+    function clampSidesForPreset(preset, ringSides) {
+      if (!isFamilyPreset(preset)) {
+        return 6;
+      }
+      const family = familyOptionForPreset(preset);
+      const value = Math.floor(Number(ringSides) || family.defaultSides);
+      return Math.max(family.minSides, Math.min(family.maxSides, value));
+    }
+    function deriveFaceMode(preset, ringSides) {
+      if (preset === "cuboctahedron" || preset === "truncatedOctahedron") {
+        return "mixed";
+      }
+      if (preset === "regularPrism") {
+        return ringSides === 4 ? "uniform" : "mixed";
+      }
+      if (preset === "regularAntiprism") {
+        return ringSides === 3 ? "uniform" : "mixed";
+      }
+      return "uniform";
+    }
     function normalizePolyhedron(polyhedron) {
       const merged = { ...initialPolyhedron, ...polyhedron };
       const preset = POLYHEDRON_ALL_PRESETS.includes(merged.preset ?? "cube") ? merged.preset : "cube";
@@ -1374,72 +1438,12 @@ function _page($$renderer, $$props) {
     templateTransform = `translate(${templatePanX.toFixed(3)} ${templatePanY.toFixed(3)}) translate(${(liveTemplate.width / 2).toFixed(3)} ${(liveTemplate.height / 2).toFixed(3)}) rotate(${templateRotation.toFixed(3)}) scale(${templateZoom.toFixed(4)}) translate(${(-liveTemplate.width / 2).toFixed(3)} ${(-liveTemplate.height / 2).toFixed(3)})`;
     resolvedShapeDefinition.bottomSegments;
     resolvedShapeDefinition.topSegments;
-    visibleHistory = history;
     head("1uha8ag", $$renderer2, ($$renderer3) => {
       $$renderer3.title(($$renderer4) => {
-        $$renderer4.push(`<title>Pottery Pattern CAD</title>`);
+        $$renderer4.push(`<title>Pottery Pattern CAD (Stateless)</title>`);
       });
     });
-    $$renderer2.push(`<main class="svelte-1uha8ag"><section class="card svelte-1uha8ag"><h1 class="svelte-1uha8ag">Pottery Pattern CAD</h1> <p class="sub svelte-1uha8ag">Project + revision aware slab template generation</p> <div class="row svelte-1uha8ag"><input placeholder="New project name"${attr("value", newProjectName)} class="svelte-1uha8ag"/> <button class="small svelte-1uha8ag">Create</button></div> <label class="svelte-1uha8ag">Project `);
-    $$renderer2.select(
-      { value: selectedProjectId, class: "" },
-      ($$renderer3) => {
-        $$renderer3.option({ value: "" }, ($$renderer4) => {
-          $$renderer4.push(`Auto-create project`);
-        });
-        $$renderer3.push(`<!--[-->`);
-        const each_array = ensure_array_like(projects);
-        for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
-          let project = each_array[$$index];
-          $$renderer3.option({ value: project.id }, ($$renderer4) => {
-            $$renderer4.push(`${escape_html(project.name)}`);
-          });
-        }
-        $$renderer3.push(`<!--]-->`);
-      },
-      "svelte-1uha8ag"
-    );
-    $$renderer2.push(`</label> <label class="svelte-1uha8ag">Parent Revision `);
-    $$renderer2.select(
-      {
-        value: selectedParentRevisionId,
-        disabled: !selectedProjectId,
-        class: ""
-      },
-      ($$renderer3) => {
-        $$renderer3.option({ value: "" }, ($$renderer4) => {
-          $$renderer4.push(`None`);
-        });
-        $$renderer3.push(`<!--[-->`);
-        const each_array_1 = ensure_array_like(revisions);
-        for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
-          let revision = each_array_1[$$index_1];
-          $$renderer3.option({ value: revision.id }, ($$renderer4) => {
-            $$renderer4.push(`${escape_html(revision.id.slice(0, 8))} • ${escape_html(new Date(revision.createdAt).toLocaleString())}`);
-          });
-        }
-        $$renderer3.push(`<!--]-->`);
-      },
-      "svelte-1uha8ag"
-    );
-    $$renderer2.push(`</label> `);
-    {
-      $$renderer2.push("<!--[!-->");
-    }
-    $$renderer2.push(`<!--]--> `);
-    if (revisions.length > 0) {
-      $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<div class="revisions-panel svelte-1uha8ag"><div class="muted svelte-1uha8ag">Recent revisions</div> <div class="revisions-list svelte-1uha8ag"><!--[-->`);
-      const each_array_2 = ensure_array_like(revisions.slice(0, 6));
-      for (let $$index_2 = 0, $$length = each_array_2.length; $$index_2 < $$length; $$index_2++) {
-        let revision = each_array_2[$$index_2];
-        $$renderer2.push(`<button class="small rev-btn svelte-1uha8ag">${escape_html(revision.id.slice(0, 8))} • H${escape_html(revision.shapeDefinition.height)} BW${escape_html(revision.shapeDefinition.bottomWidth)}</button>`);
-      }
-      $$renderer2.push(`<!--]--></div></div>`);
-    } else {
-      $$renderer2.push("<!--[!-->");
-    }
-    $$renderer2.push(`<!--]--> <div class="builder-tabs svelte-1uha8ag"><button type="button"${attr_class("small svelte-1uha8ag", void 0, { "tab-active": builderMode === "legacy" })}>Dimension Builder</button> <button type="button"${attr_class("small svelte-1uha8ag", void 0, { "tab-active": builderMode === "polyhedron" })}>Polyhedron Templates</button></div> `);
+    $$renderer2.push(`<main class="svelte-1uha8ag"><section class="card svelte-1uha8ag"><h1 class="svelte-1uha8ag">Pottery Pattern CAD</h1> <p class="sub svelte-1uha8ag">Browser-first and stateless. Refreshing the page clears session state.</p> <div class="builder-tabs svelte-1uha8ag"><button type="button"${attr_class("small svelte-1uha8ag", void 0, { "tab-active": builderMode === "legacy" })}>Dimension Builder</button> <button type="button"${attr_class("small svelte-1uha8ag", void 0, { "tab-active": builderMode === "polyhedron" })}>Polyhedron Templates</button></div> `);
     {
       $$renderer2.push("<!--[-->");
       $$renderer2.push(`<div class="grid svelte-1uha8ag"><label class="svelte-1uha8ag">Height <input type="number"${attr("value", shapeDefinition.height)} min="1" class="svelte-1uha8ag"/></label> <label class="svelte-1uha8ag">Bottom Width <input type="number"${attr("value", shapeDefinition.bottomWidth)} min="1" class="svelte-1uha8ag"/></label> <label class="svelte-1uha8ag">Top Width <input type="number"${attr("value", shapeDefinition.topWidth)} min="1" class="svelte-1uha8ag"/></label> <label class="svelte-1uha8ag">Segments <input type="number"${attr("value", shapeDefinition.segments)} min="3" max="256" class="svelte-1uha8ag"/></label> <label class="split-toggle svelte-1uha8ag"><input type="checkbox"${attr("checked", useSplitEdges, true)} class="svelte-1uha8ag"/> Use separate top/bottom edges</label> `);
@@ -1477,7 +1481,7 @@ function _page($$renderer, $$props) {
       },
       "svelte-1uha8ag"
     );
-    $$renderer2.push(`</label></div> <div class="formats svelte-1uha8ag"><label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", exportFormats.includes("svg"), true)} class="svelte-1uha8ag"/> SVG</label> <label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", exportFormats.includes("pdf"), true)} class="svelte-1uha8ag"/> PDF</label> <label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", exportFormats.includes("stl"), true)} class="svelte-1uha8ag"/> STL</label></div> <button${attr("disabled", projectsLoading, true)} class="svelte-1uha8ag">${escape_html("Generate Export Job")}</button> `);
+    $$renderer2.push(`</label></div> <div class="config-group svelte-1uha8ag"><div class="config-title svelte-1uha8ag">Export Formats</div> <div class="formats svelte-1uha8ag"><label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", exportFormats.includes("svg"), true)} class="svelte-1uha8ag"/> SVG</label> <label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", exportFormats.includes("pdf"), true)} class="svelte-1uha8ag"/> PDF</label> <label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", exportFormats.includes("stl"), true)} class="svelte-1uha8ag"/> STL</label></div></div> <div class="config-group svelte-1uha8ag"><div class="config-title svelte-1uha8ag">2D Layers (SVG/PDF)</div> <div class="formats svelte-1uha8ag"><label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", svgLayers.includes("cut"), true)} class="svelte-1uha8ag"/> Cut</label> <label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", svgLayers.includes("score"), true)} class="svelte-1uha8ag"/> Score</label> <label class="svelte-1uha8ag"><input type="checkbox"${attr("checked", svgLayers.includes("guide"), true)} class="svelte-1uha8ag"/> Guide</label></div></div> <button${attr("disabled", generating, true)} class="svelte-1uha8ag">${escape_html("Generate Files")}</button> `);
     {
       $$renderer2.push("<!--[!-->");
     }
@@ -1485,76 +1489,31 @@ function _page($$renderer, $$props) {
     {
       $$renderer2.push("<!--[!-->");
     }
-    $$renderer2.push(`<!--]--></section> <section class="card history svelte-1uha8ag"><div class="history-head svelte-1uha8ag"><h2>Job History</h2> <div class="history-tools svelte-1uha8ag"><label class="tiny-toggle svelte-1uha8ag"><input type="checkbox"${attr("checked", onlySelectedProject, true)} class="svelte-1uha8ag"/> This project</label> <button class="small svelte-1uha8ag"${attr("disabled", historyLoading, true)}>${escape_html("Refresh")}</button></div></div> `);
-    if (visibleHistory.length === 0) {
-      $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<p>No jobs yet.</p>`);
-    } else {
-      $$renderer2.push("<!--[!-->");
-      $$renderer2.push(`<div class="history-list svelte-1uha8ag"><!--[-->`);
-      const each_array_5 = ensure_array_like(visibleHistory);
-      for (let $$index_5 = 0, $$length = each_array_5.length; $$index_5 < $$length; $$index_5++) {
-        let job = each_array_5[$$index_5];
-        $$renderer2.push(`<article class="history-item svelte-1uha8ag"><div><strong>${escape_html(job.status)}</strong> <div class="muted svelte-1uha8ag">${escape_html(job.jobId.slice(0, 8))} • ${escape_html(new Date(job.createdAt).toLocaleString())}</div> <div class="muted svelte-1uha8ag">Proj ${escape_html(job.projectId.slice(0, 8))} • Rev ${escape_html(job.revisionId.slice(0, 8))}</div></div> <div class="actions svelte-1uha8ag"><button class="small svelte-1uha8ag">Load Params</button> <button class="small svelte-1uha8ag">Fork</button> `);
-        if (job.status === "queued" || job.status === "running") {
-          $$renderer2.push("<!--[-->");
-          $$renderer2.push(`<button class="small svelte-1uha8ag">Cancel</button>`);
-        } else {
-          $$renderer2.push("<!--[!-->");
-        }
-        $$renderer2.push(`<!--]--> `);
-        if (job.status === "failed" || job.status === "cancelled") {
-          $$renderer2.push("<!--[-->");
-          $$renderer2.push(`<button class="small svelte-1uha8ag">Retry</button>`);
-        } else {
-          $$renderer2.push("<!--[!-->");
-        }
-        $$renderer2.push(`<!--]--> `);
-        if (job.artifacts?.hasSvg) {
-          $$renderer2.push("<!--[-->");
-          $$renderer2.push(`<a class="small link svelte-1uha8ag"${attr("href", `/api/jobs/${job.jobId}/svg`)} target="_blank" rel="noreferrer">SVG</a>`);
-        } else {
-          $$renderer2.push("<!--[!-->");
-        }
-        $$renderer2.push(`<!--]--> `);
-        if (job.artifacts?.hasPdf) {
-          $$renderer2.push("<!--[-->");
-          $$renderer2.push(`<a class="small link svelte-1uha8ag"${attr("href", `/api/jobs/${job.jobId}/pdf`)} target="_blank" rel="noreferrer">PDF</a>`);
-        } else {
-          $$renderer2.push("<!--[!-->");
-        }
-        $$renderer2.push(`<!--]--> `);
-        if (job.artifacts?.hasStl) {
-          $$renderer2.push("<!--[-->");
-          $$renderer2.push(`<a class="small link svelte-1uha8ag"${attr("href", `/api/jobs/${job.jobId}/stl`)} target="_blank" rel="noreferrer">STL</a>`);
-        } else {
-          $$renderer2.push("<!--[!-->");
-        }
-        $$renderer2.push(`<!--]--></div></article>`);
-      }
-      $$renderer2.push(`<!--]--></div>`);
-    }
-    $$renderer2.push(`<!--]--></section> <section class="card preview svelte-1uha8ag"><h2>Live Preview</h2> <p class="muted svelte-1uha8ag">2D and 3D update together from the current parameters.</p> `);
+    $$renderer2.push(`<!--]--> `);
     {
       $$renderer2.push("<!--[!-->");
-      $$renderer2.push(`<p class="muted svelte-1uha8ag">Split edges are off, so both ends use ${escape_html(baseSegments)} edges.</p>`);
     }
-    $$renderer2.push(`<!--]--> <div class="preview-dual svelte-1uha8ag"><div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">2D Template</h3> <div class="view-controls svelte-1uha8ag"><button class="small svelte-1uha8ag" type="button" aria-label="Zoom in">+</button> <button class="small svelte-1uha8ag" type="button" aria-label="Zoom out">-</button> <button class="small svelte-1uha8ag" type="button" aria-label="Rotate left">⟲</button> <button class="small svelte-1uha8ag" type="button" aria-label="Rotate right">⟳</button> <button class="small svelte-1uha8ag" type="button">Reset</button></div></div> <svg${attr("viewBox", `0 0 ${liveTemplate.width.toFixed(3)} ${liveTemplate.height.toFixed(3)}`)} role="img" aria-label="Live 2D template preview"${attr_class("svelte-1uha8ag", void 0, { "template-panning-active": templatePanning })}><g${attr("transform", templateTransform)}><!--[-->`);
-    const each_array_6 = ensure_array_like(liveTemplate.paths);
-    for (let $$index_6 = 0, $$length = each_array_6.length; $$index_6 < $$length; $$index_6++) {
-      let path = each_array_6[$$index_6];
+    $$renderer2.push(`<!--]--></section> <section class="card preview svelte-1uha8ag"><h2 class="svelte-1uha8ag">Live Preview</h2> <p class="muted svelte-1uha8ag">2D and 3D update from current parameters.</p> `);
+    {
+      $$renderer2.push("<!--[!-->");
+      $$renderer2.push(`<p class="muted svelte-1uha8ag">Both ends use ${escape_html(baseSegments)} edges.</p>`);
+    }
+    $$renderer2.push(`<!--]--> <div class="preview-dual svelte-1uha8ag"><div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">2D Template</h3> <div class="view-controls svelte-1uha8ag"><button class="small svelte-1uha8ag" type="button" aria-label="Zoom in">+</button> <button class="small svelte-1uha8ag" type="button" aria-label="Zoom out">-</button> <button class="small svelte-1uha8ag" type="button" aria-label="Rotate left">L</button> <button class="small svelte-1uha8ag" type="button" aria-label="Rotate right">R</button> <button class="small svelte-1uha8ag" type="button">Reset</button></div></div> <svg${attr("viewBox", `0 0 ${liveTemplate.width.toFixed(3)} ${liveTemplate.height.toFixed(3)}`)} role="img" aria-label="Live 2D template preview"${attr_class("svelte-1uha8ag", void 0, { "template-panning-active": templatePanning })}><g${attr("transform", templateTransform)}><!--[-->`);
+    const each_array_4 = ensure_array_like(liveTemplate.paths);
+    for (let $$index_4 = 0, $$length = each_array_4.length; $$index_4 < $$length; $$index_4++) {
+      let path = each_array_4[$$index_4];
       $$renderer2.push(`<path${attr("d", path.d)}${attr_class(`layer-${path.layer}`, "svelte-1uha8ag")}></path>`);
     }
-    $$renderer2.push(`<!--]--></g></svg> <div class="muted svelte-1uha8ag">Drag to pan. Mouse wheel to zoom. Rotate using ⟲ / ⟳.</div></div> <div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">3D Form</h3> <button class="small svelte-1uha8ag" type="button">Reset View</button></div> <svg${attr("viewBox", `0 0 ${liveSolid.width.toFixed(3)} ${liveSolid.height.toFixed(3)}`)} role="img" aria-label="Live 3D solid preview"${attr_class("svelte-1uha8ag", void 0, { "rotating-active": rotating })}><!--[-->`);
-    const each_array_7 = ensure_array_like(liveSolid.faces);
-    for (let $$index_7 = 0, $$length = each_array_7.length; $$index_7 < $$length; $$index_7++) {
-      let face = each_array_7[$$index_7];
+    $$renderer2.push(`<!--]--></g></svg> <div class="muted svelte-1uha8ag">Drag to pan. Mouse wheel to zoom.</div></div> <div class="preview-pane svelte-1uha8ag"><div class="preview-pane-head svelte-1uha8ag"><h3 class="svelte-1uha8ag">3D Form</h3> <button class="small svelte-1uha8ag" type="button">Reset View</button></div> <svg${attr("viewBox", `0 0 ${liveSolid.width.toFixed(3)} ${liveSolid.height.toFixed(3)}`)} role="img" aria-label="Live 3D solid preview"${attr_class("svelte-1uha8ag", void 0, { "rotating-active": rotating })}><!--[-->`);
+    const each_array_5 = ensure_array_like(liveSolid.faces);
+    for (let $$index_5 = 0, $$length = each_array_5.length; $$index_5 < $$length; $$index_5++) {
+      let face = each_array_5[$$index_5];
       $$renderer2.push(`<polygon class="solid-face svelte-1uha8ag"${attr("points", face.points.map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`).join(" "))}${attr("fill", face.fill)}${attr("stroke", face.stroke)}></polygon>`);
     }
-    $$renderer2.push(`<!--]--></svg> <div class="muted svelte-1uha8ag">Drag to rotate.</div></div></div> <h2>Exported SVG</h2> `);
+    $$renderer2.push(`<!--]--></svg> <div class="muted svelte-1uha8ag">Drag to rotate.</div></div></div> <h2 class="svelte-1uha8ag">Generated SVG Preview</h2> `);
     {
       $$renderer2.push("<!--[!-->");
-      $$renderer2.push(`<p>No SVG yet. Submit or fork a job and wait for completion.</p>`);
+      $$renderer2.push(`<p>No SVG generated yet.</p>`);
     }
     $$renderer2.push(`<!--]--></section></main>`);
   });
