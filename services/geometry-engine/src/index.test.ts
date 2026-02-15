@@ -716,3 +716,31 @@ test("PDF export does not depend on global Buffer", () => {
     Reflect.set(globalThis, "Buffer", originalBuffer);
   }
 });
+
+test("renderTemplateSvg supports presentation options", () => {
+  const geometry = buildCanonicalGeometry(makeShape({}));
+  const svg = renderTemplateSvg(geometry, {
+    backgroundColor: "#ffffff",
+    layerStyles: {
+      cut: { stroke: "#111827", strokeWidth: 0.8, strokeLinecap: "round" }
+    }
+  });
+
+  assert.ok(svg.includes('fill="#ffffff"'), "expected background rect");
+  assert.ok(svg.includes("stroke:#111827"), "expected cut stroke override");
+  assert.ok(svg.includes("stroke-width:0.8"), "expected cut stroke width override");
+  assert.ok(svg.includes("stroke-linecap:round"), "expected cut stroke linecap override");
+});
+
+test("createWireframeSvg supports presentation options", () => {
+  const preview = buildWireframePreview(makeShape({}));
+  const svg = createWireframeSvg(preview, {
+    backgroundColor: "#ffffff",
+    stroke: "#111827",
+    strokeWidth: 1.7
+  });
+
+  assert.ok(svg.includes('fill="#ffffff"'), "expected background rect");
+  assert.ok(svg.includes('stroke="#111827"'), "expected stroke override");
+  assert.ok(svg.includes('stroke-width="1.7"'), "expected stroke-width override");
+});

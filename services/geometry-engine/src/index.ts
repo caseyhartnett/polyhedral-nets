@@ -90,6 +90,27 @@ export interface WireframeCamera {
   pitch?: number;
 }
 
+export interface SvgLayerStyle {
+  fill?: string;
+  stroke: string;
+  strokeWidth: number;
+  strokeDasharray?: string;
+  strokeLinecap?: "butt" | "round" | "square";
+  strokeLinejoin?: "miter" | "round" | "bevel";
+  strokeOpacity?: number;
+}
+
+export interface TemplateSvgRenderOptions {
+  backgroundColor?: string;
+  layerStyles?: Partial<Record<SvgLayer, Partial<SvgLayerStyle>>>;
+}
+
+export interface WireframeSvgRenderOptions {
+  backgroundColor?: string;
+  stroke?: string;
+  strokeWidth?: number;
+}
+
 interface Pt2 {
   x: number;
   y: number;
@@ -1507,22 +1528,78 @@ function pointsToPath(points: Point2[], closed: boolean): string {
   return d;
 }
 
-function styleForLayer(layer: SvgLayer): string {
+function defaultLayerStyle(layer: SvgLayer): SvgLayerStyle {
   if (layer === "cut") {
-    return "fill:none;stroke:#111;stroke-width:0.2";
+    return {
+      fill: "none",
+      stroke: "#111",
+      strokeWidth: 0.2
+    };
   }
 
   if (layer === "score") {
-    return "fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1";
+    return {
+      fill: "none",
+      stroke: "#0a66c2",
+      strokeWidth: 0.15,
+      strokeDasharray: "1 1"
+    };
   }
 
-  return "fill:none;stroke:#888;stroke-width:0.1;stroke-dasharray:0.6 0.6";
+  return {
+    fill: "none",
+    stroke: "#888",
+    strokeWidth: 0.1,
+    strokeDasharray: "0.6 0.6"
+  };
 }
 
-export function renderTemplateSvg(geometry: CanonicalGeometry): string {
+function styleObjectToString(style: SvgLayerStyle): string {
+  const parts = [
+    `fill:${style.fill ?? "none"}`,
+    `stroke:${style.stroke}`,
+    `stroke-width:${style.strokeWidth}`
+  ];
+  if (style.strokeDasharray) {
+    parts.push(`stroke-dasharray:${style.strokeDasharray}`);
+  }
+  if (style.strokeLinecap) {
+    parts.push(`stroke-linecap:${style.strokeLinecap}`);
+  }
+  if (style.strokeLinejoin) {
+    parts.push(`stroke-linejoin:${style.strokeLinejoin}`);
+  }
+  if (style.strokeOpacity !== undefined) {
+    parts.push(`stroke-opacity:${style.strokeOpacity}`);
+  }
+  return parts.join(";");
+}
+
+function mergedLayerStyle(
+  layer: SvgLayer,
+  options: TemplateSvgRenderOptions | undefined
+): SvgLayerStyle {
+  const base = defaultLayerStyle(layer);
+  const overrides = options?.layerStyles?.[layer];
+  if (!overrides) {
+    return base;
+  }
+  return {
+    ...base,
+    ...overrides
+  };
+}
+
+export function renderTemplateSvg(
+  geometry: CanonicalGeometry,
+  options?: TemplateSvgRenderOptions
+): string {
   const width = geometry.template.width.toFixed(3);
   const height = geometry.template.height.toFixed(3);
   const unit = geometry.template.units;
+  const backgroundRect = options?.backgroundColor
+    ? `  <rect x="0" y="0" width="${width}" height="${height}" fill="${options.backgroundColor}" />\n`
+    : "";
 
   const groups = ["cut", "score", "guide"]
     .map((layer) => {
@@ -1530,7 +1607,7 @@ export function renderTemplateSvg(geometry: CanonicalGeometry): string {
       const pathEls = paths
         .map(
           (path) =>
-            `<path class="${path.layer}" style="${styleForLayer(path.layer)}" d="${pointsToPath(path.points, path.closed)}" />`
+            `<path class="${path.layer}" style="${styleObjectToString(mergedLayerStyle(path.layer, options))}" d="${pointsToPath(path.points, path.closed)}" />`
         )
         .join("\n    ");
 
@@ -1538,7 +1615,7 @@ export function renderTemplateSvg(geometry: CanonicalGeometry): string {
     })
     .join("\n");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}${unit}" height="${height}${unit}" viewBox="0 0 ${width} ${height}">\n${groups}\n</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}${unit}" height="${height}${unit}" viewBox="0 0 ${width} ${height}">\n${backgroundRect}${groups}\n</svg>`;
 }
 
 function unitToPdfScale(units: "mm" | "in"): number {
@@ -1752,15 +1829,20 @@ export function buildWireframePreview(def: ShapeDefinition, camera: WireframeCam
   return { width, height, lines };
 }
 
-export function createWireframeSvg(preview: WireframePreview): string {
+export function createWireframeSvg(preview: WireframePreview, options?: WireframeSvgRenderOptions): string {
+  const stroke = options?.stroke ?? "#111";
+  const strokeWidth = options?.strokeWidth ?? 1.2;
+  const backgroundRect = options?.backgroundColor
+    ? `  <rect x="0" y="0" width="${preview.width}" height="${preview.height}" fill="${options.backgroundColor}" />\n`
+    : "";
   const lineEls = preview.lines
     .map(
       (line) =>
-        `<line x1="${line.x1.toFixed(3)}" y1="${line.y1.toFixed(3)}" x2="${line.x2.toFixed(3)}" y2="${line.y2.toFixed(3)}" stroke="#111" stroke-width="1.2" />`
+        `<line x1="${line.x1.toFixed(3)}" y1="${line.y1.toFixed(3)}" x2="${line.x2.toFixed(3)}" y2="${line.y2.toFixed(3)}" stroke="${stroke}" stroke-width="${strokeWidth}" />`
     )
     .join("\n  ");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${preview.width}" height="${preview.height}" viewBox="0 0 ${preview.width} ${preview.height}">\n  ${lineEls}\n</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${preview.width}" height="${preview.height}" viewBox="0 0 ${preview.width} ${preview.height}">\n${backgroundRect}  ${lineEls}\n</svg>`;
 }
 
 export function meshEdgeIncidence(mesh: MeshModel): Map<string, number[]> {
