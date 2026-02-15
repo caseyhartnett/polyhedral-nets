@@ -9,7 +9,7 @@
     "build": "svelte-kit sync && vite build",
     "preview": "vite preview",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "lint": "eslint src --ext .ts,.js --max-warnings=0 && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "svelte-kit sync && eslint src --ext .ts,.js --max-warnings=0 && svelte-check --tsconfig ./tsconfig.json",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "devDependencies": {
