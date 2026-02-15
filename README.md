@@ -23,6 +23,20 @@ Monorepo for generating slab-template geometry and export artifacts (SVG/PDF/STL
   - Live 2D template preview + interactive 3D wireframe preview
   - Job history with fork/retry/cancel and artifact links
 
+## Example outputs
+
+Regenerate these assets with:
+
+```bash
+npm run examples:readme
+```
+
+| Example | Net Template (SVG) | 3D Wireframe (SVG) | Rotating Preview (GIF) |
+| --- | --- | --- | --- |
+| Legacy hex prism | ![Legacy hex prism net](docs/readme-assets/legacy-prism-hex-net.svg) | ![Legacy hex prism wireframe](docs/readme-assets/legacy-prism-hex-wireframe.svg) | ![Legacy hex prism spin](docs/readme-assets/legacy-prism-hex-spin.gif) |
+| Legacy frustum with tabbed seam | ![Legacy frustum tabbed net](docs/readme-assets/legacy-frustum-tabbed-net.svg) | ![Legacy frustum tabbed wireframe](docs/readme-assets/legacy-frustum-tabbed-wireframe.svg) | ![Legacy frustum tabbed spin](docs/readme-assets/legacy-frustum-tabbed-spin.gif) |
+| Polyhedron dodecahedron | ![Polyhedron dodecahedron net](docs/readme-assets/polyhedron-dodecahedron-net.svg) | ![Polyhedron dodecahedron wireframe](docs/readme-assets/polyhedron-dodecahedron-wireframe.svg) | ![Polyhedron dodecahedron spin](docs/readme-assets/polyhedron-dodecahedron-spin.gif) |
+
 ## Requirements
 
 - Node.js `>=20`
