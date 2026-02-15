@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shape Gallery QA</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        --bg: #0b1020;
+        --panel: #11182b;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #273049;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 800px at 20% -20%, #1d2a52 0%, var(--bg) 50%);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      .wrap {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      p {
+        color: var(--muted);
+        margin: 0 0 18px;
+      }
+      .note {
+        margin-bottom: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: color-mix(in oklab, var(--panel) 92%, black);
+        border: 1px solid var(--line);
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 10px;
+        vertical-align: top;
+      }
+      th {
+        text-align: left;
+      }
+      img.net {
+        width: 380px;
+        max-width: 100%;
+        background: #fff;
+      }
+      img.spin {
+        width: 220px;
+        max-width: 100%;
+        background: #fff;
+      }
+      .mode {
+        display: inline-block;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Shape Gallery QA</h1>
+      <p class="note">Generated: 2026-02-15T16:30:31.757Z. Includes 5 legacy + 5 polyhedron samples.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Example</th>
+            <th>2D Net (SVG)</th>
+            <th>3D Spin (GIF)</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr>
+            <td><span class="mode">legacy</span></td>
+            <td><strong>Legacy Prism (6)</strong><br /><code>legacy-prism-6</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/legacy-prism-6-net.svg" alt="Legacy Prism (6) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/legacy-prism-6-spin.gif" alt="Legacy Prism (6) spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">legacy</span></td>
+            <td><strong>Legacy Frustum (8, tabbed)</strong><br /><code>legacy-frustum-8-tabbed</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/legacy-frustum-8-tabbed-net.svg" alt="Legacy Frustum (8, tabbed) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/legacy-frustum-8-tabbed-spin.gif" alt="Legacy Frustum (8, tabbed) spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">legacy</span></td>
+            <td><strong>Legacy Frustum (10, overlap)</strong><br /><code>legacy-frustum-10-overlap</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/legacy-frustum-10-overlap-net.svg" alt="Legacy Frustum (10, overlap) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/legacy-frustum-10-overlap-spin.gif" alt="Legacy Frustum (10, overlap) spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">legacy</span></td>
+            <td><strong>Legacy Pyramid (6)</strong><br /><code>legacy-pyramid-6</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/legacy-pyramid-6-net.svg" alt="Legacy Pyramid (6) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/legacy-pyramid-6-spin.gif" alt="Legacy Pyramid (6) spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">legacy</span></td>
+            <td><strong>Legacy Prism (12)</strong><br /><code>legacy-prism-12</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/legacy-prism-12-net.svg" alt="Legacy Prism (12) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/legacy-prism-12-spin.gif" alt="Legacy Prism (12) spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">polyhedron</span></td>
+            <td><strong>Polyhedron Cube</strong><br /><code>poly-cube</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/poly-cube-net.svg" alt="Polyhedron Cube net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/poly-cube-spin.gif" alt="Polyhedron Cube spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">polyhedron</span></td>
+            <td><strong>Polyhedron Dodecahedron</strong><br /><code>poly-dodecahedron</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/poly-dodecahedron-net.svg" alt="Polyhedron Dodecahedron net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/poly-dodecahedron-spin.gif" alt="Polyhedron Dodecahedron spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">polyhedron</span></td>
+            <td><strong>Polyhedron Truncated Octahedron</strong><br /><code>poly-truncated-octahedron</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/poly-truncated-octahedron-net.svg" alt="Polyhedron Truncated Octahedron net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/poly-truncated-octahedron-spin.gif" alt="Polyhedron Truncated Octahedron spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">polyhedron</span></td>
+            <td><strong>Polyhedron Regular Prism (7)</strong><br /><code>poly-regular-prism-7</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/poly-regular-prism-7-net.svg" alt="Polyhedron Regular Prism (7) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/poly-regular-prism-7-spin.gif" alt="Polyhedron Regular Prism (7) spin" /></td>
+          </tr>
+          <tr>
+            <td><span class="mode">polyhedron</span></td>
+            <td><strong>Polyhedron Regular Bipyramid (5)</strong><br /><code>poly-regular-bipyramid-5</code></td>
+            <td><img class="net" loading="lazy" src="shape-gallery-assets/poly-regular-bipyramid-5-net.svg" alt="Polyhedron Regular Bipyramid (5) net" /></td>
+            <td><img class="spin" loading="lazy" src="shape-gallery-assets/poly-regular-bipyramid-5-spin.gif" alt="Polyhedron Regular Bipyramid (5) spin" /></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

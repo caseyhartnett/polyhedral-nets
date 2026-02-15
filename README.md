@@ -90,6 +90,7 @@ npm run test
 - `docs/printability-rules.md` - validation rules and current warnings
 - `docs/development.md` - local development and test commands
 - `docs/stateless-refactor-plan.md` - archived execution plan for the completed stateless migration
+- `docs/two-face-polyhedra-math.md` - math for two-face polyhedra feasibility and integration approach
 
 ## License
 

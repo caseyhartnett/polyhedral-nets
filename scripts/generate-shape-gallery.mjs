@@ -5,8 +5,6 @@ import { fileURLToPath } from "node:url";
 import {
   buildCanonicalGeometry,
   buildShapeDebugModel,
-  buildWireframePreview,
-  createWireframeSvg,
   renderTemplateSvg
 } from "../services/geometry-engine/dist/index.js";
 
@@ -16,7 +14,8 @@ const { GifWriter } = require("omggif");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const outDir = path.join(repoRoot, "docs", "readme-assets");
+const outDir = path.join(repoRoot, "docs", "shape-gallery-assets");
+const htmlPath = path.join(repoRoot, "docs", "shape-gallery.html");
 const TWO_PI = Math.PI * 2;
 const NET_PAD_RIGHT = 20;
 const NET_PAD_BOTTOM = 20;
@@ -49,8 +48,9 @@ const basePoly = {
 
 const examples = [
   {
-    id: "legacy-prism-hex",
-    label: "Legacy Hex Prism",
+    id: "legacy-prism-6",
+    mode: "legacy",
+    label: "Legacy Prism (6)",
     shape: {
       ...baseLegacy,
       height: 90,
@@ -65,8 +65,9 @@ const examples = [
     camera: { yaw: -0.75, pitch: 0.55 }
   },
   {
-    id: "legacy-frustum-tabbed",
-    label: "Legacy Frustum (Tabbed Seam)",
+    id: "legacy-frustum-8-tabbed",
+    mode: "legacy",
+    label: "Legacy Frustum (8, tabbed)",
     shape: {
       ...baseLegacy,
       height: 110,
@@ -81,7 +82,73 @@ const examples = [
     camera: { yaw: -0.5, pitch: 0.5 }
   },
   {
-    id: "polyhedron-dodecahedron",
+    id: "legacy-frustum-10-overlap",
+    mode: "legacy",
+    label: "Legacy Frustum (10, overlap)",
+    shape: {
+      ...baseLegacy,
+      height: 120,
+      bottomWidth: 140,
+      topWidth: 95,
+      seamMode: "overlap",
+      allowance: 8,
+      segments: 10,
+      bottomSegments: 10,
+      topSegments: 10
+    },
+    camera: { yaw: -0.62, pitch: 0.48 }
+  },
+  {
+    id: "legacy-pyramid-6",
+    mode: "legacy",
+    label: "Legacy Pyramid (6)",
+    shape: {
+      ...baseLegacy,
+      height: 105,
+      bottomWidth: 120,
+      topWidth: 1,
+      seamMode: "straight",
+      allowance: 0,
+      segments: 6,
+      bottomSegments: 6,
+      topSegments: 1
+    },
+    camera: { yaw: -0.6, pitch: 0.5 }
+  },
+  {
+    id: "legacy-prism-12",
+    mode: "legacy",
+    label: "Legacy Prism (12)",
+    shape: {
+      ...baseLegacy,
+      height: 95,
+      bottomWidth: 150,
+      topWidth: 150,
+      seamMode: "straight",
+      allowance: 0,
+      segments: 12,
+      bottomSegments: 12,
+      topSegments: 12
+    },
+    camera: { yaw: -0.82, pitch: 0.52 }
+  },
+  {
+    id: "poly-cube",
+    mode: "polyhedron",
+    label: "Polyhedron Cube",
+    shape: {
+      ...basePoly,
+      polyhedron: {
+        preset: "cube",
+        edgeLength: 58,
+        faceMode: "uniform"
+      }
+    },
+    camera: { yaw: -0.75, pitch: 0.52 }
+  },
+  {
+    id: "poly-dodecahedron",
+    mode: "polyhedron",
     label: "Polyhedron Dodecahedron",
     shape: {
       ...basePoly,
@@ -92,6 +159,50 @@ const examples = [
       }
     },
     camera: { yaw: -0.9, pitch: 0.5 }
+  },
+  {
+    id: "poly-truncated-octahedron",
+    mode: "polyhedron",
+    label: "Polyhedron Truncated Octahedron",
+    shape: {
+      ...basePoly,
+      polyhedron: {
+        preset: "truncatedOctahedron",
+        edgeLength: 26,
+        faceMode: "mixed"
+      }
+    },
+    camera: { yaw: -0.85, pitch: 0.48 }
+  },
+  {
+    id: "poly-regular-prism-7",
+    mode: "polyhedron",
+    label: "Polyhedron Regular Prism (7)",
+    shape: {
+      ...basePoly,
+      polyhedron: {
+        preset: "regularPrism",
+        edgeLength: 30,
+        faceMode: "mixed",
+        ringSides: 7
+      }
+    },
+    camera: { yaw: -0.7, pitch: 0.5 }
+  },
+  {
+    id: "poly-regular-bipyramid-5",
+    mode: "polyhedron",
+    label: "Polyhedron Regular Bipyramid (5)",
+    shape: {
+      ...basePoly,
+      polyhedron: {
+        preset: "regularBipyramid",
+        edgeLength: 34,
+        faceMode: "uniform",
+        ringSides: 5
+      }
+    },
+    camera: { yaw: -0.7, pitch: 0.55 }
   }
 ];
 
@@ -108,7 +219,7 @@ function projectPoint(p, yaw, pitch) {
   const y2 = y1 * cp - z1 * sp;
   const z2 = y1 * sp + z1 * cp;
 
-  return { x: x1, y: -z2, depth: y2 };
+  return { x: x1, y: -z2 };
 }
 
 function collectUniqueEdges(mesh) {
@@ -242,10 +353,9 @@ function addRightBottomCanvasPadding(svg, padRight = NET_PAD_RIGHT, padBottom = 
 
 fs.mkdirSync(outDir, { recursive: true });
 
+const rows = [];
 for (const example of examples) {
   const canonical = buildCanonicalGeometry(example.shape);
-  // README is commonly viewed in dark themes, so generated showcase SVGs use a white
-  // background and thicker strokes for legibility.
   const netSvg = addRightBottomCanvasPadding(
     renderTemplateSvg(canonical, {
     backgroundColor: "#ffffff",
@@ -272,17 +382,11 @@ for (const example of examples) {
     }
     })
   );
-  const wireframeSvg = createWireframeSvg(buildWireframePreview(example.shape, example.camera), {
-    backgroundColor: "#ffffff",
-    stroke: "#111827",
-    strokeWidth: 1.7
-  });
 
   const netPath = path.join(outDir, `${example.id}-net.svg`);
-  const wirePath = path.join(outDir, `${example.id}-wireframe.svg`);
   const gifPath = path.join(outDir, `${example.id}-spin.gif`);
+
   fs.writeFileSync(netPath, netSvg, "utf8");
-  fs.writeFileSync(wirePath, wireframeSvg, "utf8");
   buildWireframeGif(example.shape, gifPath, {
     width: 320,
     height: 220,
@@ -291,7 +395,121 @@ for (const example of examples) {
     yawOffset: example.camera?.yaw ?? 0,
     pitch: example.camera?.pitch ?? 0.5
   });
+
+  rows.push({
+    id: example.id,
+    mode: example.mode,
+    label: example.label,
+    net: `shape-gallery-assets/${example.id}-net.svg`,
+    gif: `shape-gallery-assets/${example.id}-spin.gif`
+  });
+
   console.log(`wrote ${path.relative(repoRoot, netPath)}`);
-  console.log(`wrote ${path.relative(repoRoot, wirePath)}`);
   console.log(`wrote ${path.relative(repoRoot, gifPath)}`);
 }
+
+const generatedAt = new Date().toISOString();
+const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shape Gallery QA</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        --bg: #0b1020;
+        --panel: #11182b;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --line: #273049;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 800px at 20% -20%, #1d2a52 0%, var(--bg) 50%);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      .wrap {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      p {
+        color: var(--muted);
+        margin: 0 0 18px;
+      }
+      .note {
+        margin-bottom: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: color-mix(in oklab, var(--panel) 92%, black);
+        border: 1px solid var(--line);
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 10px;
+        vertical-align: top;
+      }
+      th {
+        text-align: left;
+      }
+      img.net {
+        width: 380px;
+        max-width: 100%;
+        background: #fff;
+      }
+      img.spin {
+        width: 220px;
+        max-width: 100%;
+        background: #fff;
+      }
+      .mode {
+        display: inline-block;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Shape Gallery QA</h1>
+      <p class="note">Generated: ${generatedAt}. Includes 5 legacy + 5 polyhedron samples.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Example</th>
+            <th>2D Net (SVG)</th>
+            <th>3D Spin (GIF)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+          <tr>
+            <td><span class="mode">${row.mode}</span></td>
+            <td><strong>${row.label}</strong><br /><code>${row.id}</code></td>
+            <td><img class="net" loading="lazy" src="${row.net}" alt="${row.label} net" /></td>
+            <td><img class="spin" loading="lazy" src="${row.gif}" alt="${row.label} spin" /></td>
+          </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>
+`;
+
+fs.writeFileSync(htmlPath, html, "utf8");
+console.log(`wrote ${path.relative(repoRoot, htmlPath)}`);

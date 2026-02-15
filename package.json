@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web build",
+    "examples:gallery": "npm run -w @torrify/geometry-engine build && node scripts/generate-shape-gallery.mjs",
     "examples:readme": "node scripts/generate-readme-examples.mjs",
     "dev": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web dev",
     "dev:web": "npm run -w @torrify/web dev",

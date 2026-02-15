@@ -474,6 +474,10 @@ const GOLDEN_CASES: Array<{ name: string; shape: ShapeDefinition }> = [
     shape: makeShape({ height: 70, bottomWidth: 110, topWidth: 110, segments: 8 })
   },
   {
+    name: "frustum-n8",
+    shape: makeShape({ height: 85, bottomWidth: 130, topWidth: 75, segments: 8 })
+  },
+  {
     name: "pyramid-n4",
     shape: makeShape({ height: 85, bottomWidth: 80, topWidth: 1, segments: 4, bottomSegments: 4, topSegments: 1 })
   },
