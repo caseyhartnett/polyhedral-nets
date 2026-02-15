@@ -1,0 +1,27 @@
+{
+  "name": "@torrify/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "svelte-kit sync && vite build",
+    "preview": "vite preview",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "echo 'No linter configured yet for @torrify/web'",
+    "test": "echo 'No tests configured yet for @torrify/web'"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^4.0.0",
+    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.19.2",
+    "svelte-check": "^4.1.1",
+    "typescript": "^5.8.2",
+    "vite": "^6.1.0"
+  },
+  "dependencies": {
+    "@torrify/geometry-engine": "0.1.0",
+    "@torrify/shared-types": "0.1.0"
+  }
+}

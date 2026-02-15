@@ -1,0 +1,26 @@
+{
+  "name": "@torrify/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "TORRIFY_DATA_DIR=../../data node --watch --import tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'No linter configured yet for @torrify/worker'",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@torrify/geometry-engine": "0.1.0",
+    "@torrify/job-store": "0.1.0",
+    "@torrify/shared-types": "0.1.0",
+    "bullmq": "^5.48.1",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

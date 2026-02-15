@@ -1,0 +1,29 @@
+{
+  "name": "@torrify/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "TORRIFY_DATA_DIR=../../data node --watch --import tsx src/server.ts",
+    "start": "TORRIFY_DATA_DIR=../../data node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'No linter configured yet for @torrify/api'",
+    "test": "node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "@torrify/geometry-engine": "0.1.0",
+    "@torrify/job-store": "0.1.0",
+    "@torrify/shared-types": "0.1.0",
+    "fastify": "^5.2.1",
+    "zod": "^3.24.1",
+    "bullmq": "^5.48.1",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
