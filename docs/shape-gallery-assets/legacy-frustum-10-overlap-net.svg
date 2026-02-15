@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="473.485mm" height="396.934mm" viewBox="0 0 473.485 396.934">
+  <rect x="0" y="0" width="473.485" height="396.934" fill="#ffffff" />
+  <g id="cut">
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 336.3381 239.6119 L 454.4138 270.6664" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 454.4138 270.6664 L 463.4855 242.7466" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 463.4855 242.7466 L 349.7069 198.4670" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 301.3381 265.0409 L 378.6100 359.5676" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 378.6100 359.5676 L 402.3600 342.3123" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 402.3600 342.3123 L 336.3381 239.6119" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 258.0757 265.0409 L 265.0286 386.9339" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 265.0286 386.9339 L 294.3852 386.9339" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 294.3852 386.9339 L 301.3381 265.0409" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 223.0757 239.6119 L 157.0538 342.3123" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 157.0538 342.3123 L 180.8038 359.5676" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 180.8038 359.5676 L 258.0757 265.0409" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 209.7069 198.4670 L 95.9283 242.7466" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 105.0000 270.6664 L 223.0757 239.6119" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 223.0757 157.3220 L 105.0000 126.2676" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 105.0000 126.2676 L 95.9283 154.1874" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 258.0757 131.8930 L 180.8038 37.3663" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 180.8038 37.3663 L 157.0538 54.6217" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 157.0538 54.6217 L 223.0757 157.3220" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 301.3381 131.8930 L 294.3852 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 294.3852 10.0000 L 265.0286 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 265.0286 10.0000 L 258.0757 131.8930" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 336.3381 157.3220 L 402.3600 54.6217" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 402.3600 54.6217 L 378.6100 37.3663" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 378.6100 37.3663 L 301.3381 131.8930" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 349.7069 198.4670 L 463.4855 154.1874" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 463.4855 154.1874 L 454.4138 126.2676" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 454.4138 126.2676 L 336.3381 157.3220" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 95.9283 242.7466 L 72.1783 225.4912" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 72.1783 225.4912 L 42.8217 225.4912" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 42.8217 225.4912 L 19.0717 242.7466" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 19.0717 242.7466 L 10.0000 270.6664" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 10.0000 270.6664 L 19.0717 298.5862" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 19.0717 298.5862 L 42.8217 315.8416" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 42.8217 315.8416 L 72.1783 315.8416" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 72.1783 315.8416 L 95.9283 298.5862" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 95.9283 298.5862 L 105.0000 270.6664" />
+    <path class="cut" style="fill:none;stroke:#111827;stroke-width:0.8;stroke-linecap:round;stroke-linejoin:round" d="M 95.9283 154.1874 L 93.0269 161.6427 L 206.8055 205.9223 L 209.7069 198.4670" />
+  </g>
+  <g id="score">
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 349.7069 198.4670 L 336.3381 239.6119" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 336.3381 239.6119 L 301.3381 265.0409" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 301.3381 265.0409 L 258.0757 265.0409" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 258.0757 265.0409 L 223.0757 239.6119" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 223.0757 239.6119 L 209.7069 198.4670" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 95.9283 242.7466 L 105.0000 270.6664" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 209.7069 198.4670 L 223.0757 157.3220" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 95.9283 154.1874 L 209.7069 198.4670" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 223.0757 157.3220 L 258.0757 131.8930" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 258.0757 131.8930 L 301.3381 131.8930" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 301.3381 131.8930 L 336.3381 157.3220" />
+    <path class="score" style="fill:none;stroke:#1d4ed8;stroke-width:0.65;stroke-dasharray:2.2 1.4;stroke-linecap:round" d="M 336.3381 157.3220 L 349.7069 198.4670" />
+  </g>
+  <g id="guide">
+    
+  </g>
+</svg>

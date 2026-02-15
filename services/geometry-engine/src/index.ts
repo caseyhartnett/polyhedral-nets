@@ -116,13 +116,6 @@ interface Pt2 {
   y: number;
 }
 
-interface PlacedPanel {
-  a: Pt2;
-  b: Pt2;
-  c: Pt2;
-  d: Pt2;
-}
-
 interface PlacedTriangle {
   a: Pt2;
   b: Pt2;
@@ -284,32 +277,6 @@ function centroid2(points: Pt2[]): Pt2 {
   return { x: sx / points.length, y: sy / points.length };
 }
 
-function mapPanelToEdge(local: PlacedPanel, edgeStart: Pt2, edgeEnd: Pt2): PlacedPanel {
-  const l0 = local.a;
-  const l1 = local.d;
-  const vL = sub2(l1, l0);
-  const vW = sub2(edgeEnd, edgeStart);
-  const ul = unit2(vL);
-  const vl = { x: -ul.y, y: ul.x };
-  const uw = unit2(vW);
-  const vw = { x: -uw.y, y: uw.x };
-  const s = len2(vW) / Math.max(len2(vL), EPSILON);
-
-  const mapPoint = (p: Pt2): Pt2 => {
-    const d = sub2(p, l0);
-    const a = dot2(d, ul);
-    const b = dot2(d, vl);
-    return add2(edgeStart, add2(scale2(uw, a * s), scale2(vw, b * s)));
-  };
-
-  return {
-    a: mapPoint(local.a),
-    b: mapPoint(local.b),
-    c: mapPoint(local.c),
-    d: mapPoint(local.d)
-  };
-}
-
 function mapTriangleToEdge(local: PlacedTriangle, edgeStart: Pt2, edgeEnd: Pt2): PlacedTriangle {
   const l0 = local.a;
   const l1 = local.c;
@@ -461,38 +428,53 @@ function buildFrustumLikeNet(mesh: MeshModel, counts: SegmentCounts): NetModel {
     throw new Error("Invalid shape: side face collapsed during net construction");
   }
   const rise = Math.sqrt(riseSquared);
+  const bottomCap: Point2[] = Array.from({ length: n }, (_, i) => ({
+    x: mesh.vertices[i].x,
+    y: mesh.vertices[i].y
+  }));
+  const bottomCentroid = centroid2(bottomCap);
 
-  const local: PlacedPanel = {
-    a: { x: 0, y: 0 },
-    b: { x: topSide, y: 0 },
-    c: { x: topSide + inset, y: rise },
-    d: { x: inset, y: rise }
-  };
+  interface RadialPanelPlacement {
+    points: Point2[];
+    topStart: Point2;
+    topEnd: Point2;
+    outward: Pt2;
+  }
 
-  const panels: PlacedPanel[] = [{ ...local }];
-  for (let i = 1; i < n; i += 1) {
-    const prev = panels[i - 1];
-    panels.push(mapPanelToEdge(local, prev.b, prev.c));
+  const panels: RadialPanelPlacement[] = [];
+
+  for (let i = 0; i < n; i += 1) {
+    const b0 = bottomCap[i];
+    const b1 = bottomCap[(i + 1) % n];
+    const edge = sub2(b1, b0);
+    const along = unit2(edge);
+    const midpoint = scale2(add2(b0, b1), 0.5);
+    const n1 = unit2({ x: -edge.y, y: edge.x });
+    const n2 = scale2(n1, -1);
+    const toMid = sub2(midpoint, bottomCentroid);
+    const outward = dot2(toMid, n1) >= dot2(toMid, n2) ? n1 : n2;
+
+    const t0 = add2(b0, add2(scale2(along, inset), scale2(outward, rise)));
+    const t1 = add2(b0, add2(scale2(along, bottomSide - inset), scale2(outward, rise)));
+
+    panels.push({
+      points: [b0, b1, t1, t0],
+      topStart: t0,
+      topEnd: t1,
+      outward
+    });
   }
 
   const netFaces: NetFace[] = panels.map((panel, i) => ({
     faceId: sideFaces[i].id,
-    points: [panel.a, panel.b, panel.c, panel.d]
+    points: panel.points
   }));
 
-  const stripCentroid = centroid2(panels.flatMap((panel) => [panel.a, panel.b, panel.c, panel.d]));
-  const attachPanelIndex = Math.floor((n - 1) / 2);
-  const attachPanel = panels[attachPanelIndex];
-
-  const bottomAttach = { p0: attachPanel.d, p1: attachPanel.c };
-  const bottomOut = sub2(scale2(add2(bottomAttach.p0, bottomAttach.p1), 0.5), stripCentroid);
-  const bottomCap = polygonFromAttachedEdge(bottomAttach.p0, bottomAttach.p1, n, bottomOut);
   netFaces.push({ faceId: bottomFace.id, points: bottomCap });
 
   if (topFace) {
-    const topAttach = { p0: attachPanel.a, p1: attachPanel.b };
-    const topOut = sub2(scale2(add2(topAttach.p0, topAttach.p1), 0.5), stripCentroid);
-    const topCap = polygonFromAttachedEdge(topAttach.p0, topAttach.p1, n, topOut);
+    const attachPanel = panels[Math.floor((n - 1) / 2)];
+    const topCap = polygonFromAttachedEdge(attachPanel.topStart, attachPanel.topEnd, n, attachPanel.outward);
     netFaces.push({ faceId: topFace.id, points: topCap });
   }
 
