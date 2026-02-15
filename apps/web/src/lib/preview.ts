@@ -1,6 +1,6 @@
 import {
   buildCanonicalGeometry,
-  buildWireframePreview as buildEngineWireframePreview,
+  buildShapeDebugModel,
   type WireframeCamera
 } from '@torrify/geometry-engine';
 import type { ShapeDefinition } from '@torrify/shared-types';
@@ -49,17 +49,16 @@ export interface TemplatePreview {
   paths: PreviewPath[];
 }
 
-export interface WireLine {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
+export interface SolidFace {
+  points: Array<{ x: number; y: number }>;
+  fill: string;
+  stroke: string;
 }
 
-export interface WireframePreview {
+export interface SolidPreview {
   width: number;
   height: number;
-  lines: WireLine[];
+  faces: SolidFace[];
 }
 
 function toPath(points: Array<{ x: number; y: number }>, closed = false): string {
@@ -103,12 +102,59 @@ function emptyTemplate(): TemplatePreview {
   };
 }
 
-function emptyWireframe(): WireframePreview {
+function emptySolid(): SolidPreview {
   return {
     width: 460,
     height: 320,
-    lines: []
+    faces: []
   };
+}
+
+function normalizeVec(v: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  const mag = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+  if (mag <= 1e-9) return { x: 0, y: 0, z: 1 };
+  return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
+}
+
+function cross(
+  a: { x: number; y: number; z: number },
+  b: { x: number; y: number; z: number }
+): { x: number; y: number; z: number } {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x
+  };
+}
+
+function rotatePoint(
+  p: { x: number; y: number; z: number },
+  yaw = -0.7,
+  pitch = 0.45
+): { x: number; y: number; z: number } {
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+
+  const x1 = p.x * cy - p.y * sy;
+  const y1 = p.x * sy + p.y * cy;
+  const z1 = p.z;
+
+  return {
+    x: x1,
+    y: y1 * cp - z1 * sp,
+    z: y1 * sp + z1 * cp
+  };
+}
+
+function shadeBlue(intensity: number): string {
+  const base = { r: 37, g: 99, b: 235 };
+  const clamped = Math.max(0.42, Math.min(1.05, intensity));
+  const r = Math.round(base.r * clamped);
+  const g = Math.round(base.g * clamped);
+  const b = Math.round(base.b * clamped);
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export function buildTemplatePreview(def: PreviewShapeDefinition): TemplatePreview {
@@ -127,10 +173,66 @@ export function buildTemplatePreview(def: PreviewShapeDefinition): TemplatePrevi
   }
 }
 
-export function buildWireframePreview(def: PreviewShapeDefinition, camera: WireframeCamera = {}): WireframePreview {
+export function buildSolidPreview(def: PreviewShapeDefinition, camera: WireframeCamera = {}): SolidPreview {
   try {
-    return buildEngineWireframePreview(toShapeDefinition(def), camera);
+    const shape = buildShapeDebugModel(toShapeDefinition(def));
+    const yaw = camera.yaw ?? -0.7;
+    const pitch = camera.pitch ?? 0.45;
+    const width = 460;
+    const height = 320;
+
+    const rotated = shape.mesh.vertices.map((vertex) => rotatePoint(vertex, yaw, pitch));
+    const projected = rotated.map((vertex) => ({
+      x: vertex.x,
+      y: -vertex.z,
+      depth: vertex.y
+    }));
+
+    const xs = projected.map((point) => point.x);
+    const ys = projected.map((point) => point.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const spanX = Math.max(1, maxX - minX);
+    const spanY = Math.max(1, maxY - minY);
+    const scale = Math.min((width - 32) / spanX, (height - 32) / spanY);
+
+    const light = normalizeVec({ x: -0.35, y: 0.72, z: 0.6 });
+    const faces = shape.mesh.faces
+      .map((face) => {
+        const points = face.vertexIndices.map((index) => ({
+          x: 16 + (projected[index].x - minX) * scale,
+          y: 16 + (projected[index].y - minY) * scale
+        }));
+
+        const a = rotated[face.vertexIndices[0]];
+        const b = rotated[face.vertexIndices[1]];
+        const c = rotated[face.vertexIndices[2]];
+        const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+        const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+        const normal = normalizeVec(cross(ab, ac));
+        const intensity = 0.48 + Math.max(0, normal.x * light.x + normal.y * light.y + normal.z * light.z) * 0.55;
+        const depth =
+          face.vertexIndices.reduce((sum, index) => sum + projected[index].depth, 0) /
+          face.vertexIndices.length;
+
+        return {
+          points,
+          fill: shadeBlue(intensity),
+          stroke: '#1d4ed8',
+          depth
+        };
+      })
+      .sort((a, b) => a.depth - b.depth)
+      .map((face) => ({
+        points: face.points,
+        fill: face.fill,
+        stroke: face.stroke
+      }));
+
+    return { width, height, faces };
   } catch {
-    return emptyWireframe();
+    return emptySolid();
   }
 }

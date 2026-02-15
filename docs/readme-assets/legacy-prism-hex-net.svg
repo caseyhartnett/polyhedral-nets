@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="285.000mm" height="254.545mm" viewBox="0 0 285.000 254.545">
+  <g id="cut">
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 10.0000 92.2724 L 57.5000 92.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 57.5000 182.2724 L 10.0000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 10.0000 182.2724 L 10.0000 92.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 57.5000 92.2724 L 105.0000 92.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 105.0000 182.2724 L 57.5000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 152.5000 92.2724 L 200.0000 92.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 200.0000 182.2724 L 152.5000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 200.0000 92.2724 L 247.5000 92.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 247.5000 182.2724 L 200.0000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 247.5000 92.2724 L 295.0000 92.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 295.0000 92.2724 L 295.0000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 295.0000 182.2724 L 247.5000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 152.5000 182.2724 L 176.2500 223.4086" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 176.2500 223.4086 L 152.5000 264.5448" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 152.5000 264.5448 L 105.0000 264.5448" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 105.0000 264.5448 L 81.2500 223.4086" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 81.2500 223.4086 L 105.0000 182.2724" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 152.5000 92.2724 L 176.2500 51.1362" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 176.2500 51.1362 L 152.5000 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 152.5000 10.0000 L 105.0000 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 105.0000 10.0000 L 81.2500 51.1362" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 81.2500 51.1362 L 105.0000 92.2724" />
+  </g>
+  <g id="score">
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 57.5000 92.2724 L 57.5000 182.2724" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 105.0000 92.2724 L 105.0000 182.2724" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 105.0000 92.2724 L 152.5000 92.2724" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 152.5000 92.2724 L 152.5000 182.2724" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 152.5000 182.2724 L 105.0000 182.2724" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 200.0000 92.2724 L 200.0000 182.2724" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 247.5000 92.2724 L 247.5000 182.2724" />
+  </g>
+  <g id="guide">
+    
+  </g>
+</svg>

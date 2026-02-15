@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="250.269mm" height="251.478mm" viewBox="0 0 250.269 251.478">
+  <g id="cut">
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 20.1349 79.2910 L 48.8361 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 59.3599 192.1869 L 30.6587 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 48.8361 79.2910 L 77.5374 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 88.0612 192.1869 L 59.3599 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 77.5374 79.2910 L 106.2387 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 116.7625 192.1869 L 88.0612 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 134.9399 79.2910 L 163.6412 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 174.1650 192.1869 L 145.4637 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 163.6412 79.2910 L 192.3424 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 202.8662 192.1869 L 174.1650 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 192.3424 79.2910 L 221.0437 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 231.5675 192.1869 L 202.8662 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 221.0437 79.2910 L 249.7449 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 249.7449 79.2910 L 260.2687 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 260.2687 192.1869 L 231.5675 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 145.4637 192.1869 L 165.7586 212.4818" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 165.7586 212.4818 L 165.7586 241.1830" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 165.7586 241.1830 L 145.4637 261.4779" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 145.4637 261.4779 L 116.7625 261.4779" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 116.7625 261.4779 L 96.4676 241.1830" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 96.4676 241.1830 L 96.4676 212.4818" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 96.4676 212.4818 L 116.7625 192.1869" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 134.9399 79.2910 L 155.2348 58.9961" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 155.2348 58.9961 L 155.2348 30.2949" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 155.2348 30.2949 L 134.9399 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 134.9399 10.0000 L 106.2387 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 106.2387 10.0000 L 85.9438 30.2949" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 85.9438 30.2949 L 85.9438 58.9961" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 85.9438 58.9961 L 106.2387 79.2910" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 30.6587 192.1869 L 20.7018 193.1151 L 17.8928 179.1423 L 22.0536 164.5198 L 15.2619 150.9183 L 19.4227 136.2958 L 12.6309 122.6943 L 16.7917 108.0718 L 10.0000 94.4703 L 10.1781 80.2191 L 20.1349 79.2910" />
+  </g>
+  <g id="score">
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 48.8361 79.2910 L 59.3599 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 30.6587 192.1869 L 20.1349 79.2910" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 77.5374 79.2910 L 88.0612 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 106.2387 79.2910 L 116.7625 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 106.2387 79.2910 L 134.9399 79.2910" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 134.9399 79.2910 L 145.4637 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 145.4637 192.1869 L 116.7625 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 163.6412 79.2910 L 174.1650 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 192.3424 79.2910 L 202.8662 192.1869" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 221.0437 79.2910 L 231.5675 192.1869" />
+  </g>
+  <g id="guide">
+    
+  </g>
+</svg>

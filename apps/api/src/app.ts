@@ -64,6 +64,16 @@ const createRevisionSchema = z.object({
 export function buildApp(store: JobStoreLike, queue: QueueLike) {
   const app = Fastify({ logger: false });
 
+  const enqueueExportJob = async (jobId: string): Promise<void> => {
+    try {
+      await queue.add("export", { jobId }, { jobId });
+    } catch (error) {
+      // Avoid leaving orphaned queued records when queue enqueue fails.
+      await store.markCancelled(jobId);
+      throw error;
+    }
+  };
+
   app.get("/health", async () => ({ ok: true }));
 
   app.post("/v1/projects", async (request, reply) => {
@@ -92,6 +102,16 @@ export function buildApp(store: JobStoreLike, queue: QueueLike) {
       const project = await store.getProject(projectId);
       if (!project) {
         return reply.code(404).send({ message: "Project not found" });
+      }
+
+      if (payload.parentRevisionId) {
+        const parentRevision = await store.getRevision(payload.parentRevisionId);
+        if (!parentRevision) {
+          return reply.code(404).send({ message: "Parent revision not found" });
+        }
+        if (parentRevision.projectId !== projectId) {
+          return reply.code(409).send({ message: "Parent revision belongs to a different project" });
+        }
       }
 
       const revision = await store.createRevision(
@@ -177,8 +197,19 @@ export function buildApp(store: JobStoreLike, queue: QueueLike) {
   app.post("/v1/jobs", async (request, reply) => {
     try {
       const payload = parseCreateJobRequest(request.body);
+      const parentRevision = payload.parentRevisionId
+        ? await store.getRevision(payload.parentRevisionId)
+        : undefined;
 
-      let projectId = payload.projectId;
+      if (payload.parentRevisionId && !parentRevision) {
+        return reply.code(404).send({ message: "Parent revision not found" });
+      }
+
+      let projectId = payload.projectId ?? parentRevision?.projectId;
+      if (projectId && parentRevision && parentRevision.projectId !== projectId) {
+        return reply.code(409).send({ message: "Parent revision belongs to a different project" });
+      }
+
       if (!projectId) {
         const project = await store.createProject(crypto.randomUUID(), "Untitled Project");
         projectId = project.id;
@@ -198,7 +229,7 @@ export function buildApp(store: JobStoreLike, queue: QueueLike) {
 
       const jobId = crypto.randomUUID();
       await store.createQueuedJob(jobId, projectId, revision.id, payload);
-      await queue.add("export", { jobId }, { jobId });
+      await enqueueExportJob(jobId);
 
       const response: CreateJobResponse = {
         jobId,
@@ -267,89 +298,97 @@ export function buildApp(store: JobStoreLike, queue: QueueLike) {
   });
 
   app.post("/v1/jobs/:jobId/retry", async (request, reply) => {
-    const { jobId } = request.params as { jobId: string };
-    const sourceJob = await store.getJob(jobId);
+    try {
+      const { jobId } = request.params as { jobId: string };
+      const sourceJob = await store.getJob(jobId);
 
-    if (!sourceJob) {
-      return reply.code(404).send({ message: "Job not found" });
+      if (!sourceJob) {
+        return reply.code(404).send({ message: "Job not found" });
+      }
+
+      if (sourceJob.status !== "failed" && sourceJob.status !== "cancelled") {
+        return reply.code(409).send({ message: "Only failed/cancelled jobs can be retried" });
+      }
+
+      const sourceRevision = await store.getRevision(sourceJob.revisionId);
+      if (!sourceRevision) {
+        return reply.code(404).send({ message: "Revision not found" });
+      }
+
+      const newRevision = await store.createRevision(
+        crypto.randomUUID(),
+        sourceJob.projectId,
+        sourceRevision.shapeDefinition,
+        sourceJob.revisionId
+      );
+
+      const payload = {
+        ...sourceJob.payload,
+        projectId: sourceJob.projectId,
+        parentRevisionId: sourceJob.revisionId,
+        shapeDefinition: sourceRevision.shapeDefinition
+      };
+
+      const newJobId = crypto.randomUUID();
+      await store.createQueuedJob(newJobId, sourceJob.projectId, newRevision.id, payload);
+      await enqueueExportJob(newJobId);
+
+      const response: CreateJobResponse = {
+        jobId: newJobId,
+        status: "queued",
+        projectId: sourceJob.projectId,
+        revisionId: newRevision.id
+      };
+
+      return reply.code(202).send(response);
+    } catch {
+      return reply.code(500).send({ message: "Internal server error" });
     }
-
-    if (sourceJob.status !== "failed" && sourceJob.status !== "cancelled") {
-      return reply.code(409).send({ message: "Only failed/cancelled jobs can be retried" });
-    }
-
-    const sourceRevision = await store.getRevision(sourceJob.revisionId);
-    if (!sourceRevision) {
-      return reply.code(404).send({ message: "Revision not found" });
-    }
-
-    const newRevision = await store.createRevision(
-      crypto.randomUUID(),
-      sourceJob.projectId,
-      sourceRevision.shapeDefinition,
-      sourceJob.revisionId
-    );
-
-    const payload = {
-      ...sourceJob.payload,
-      projectId: sourceJob.projectId,
-      parentRevisionId: sourceJob.revisionId,
-      shapeDefinition: sourceRevision.shapeDefinition
-    };
-
-    const newJobId = crypto.randomUUID();
-    await store.createQueuedJob(newJobId, sourceJob.projectId, newRevision.id, payload);
-    await queue.add("export", { jobId: newJobId }, { jobId: newJobId });
-
-    const response: CreateJobResponse = {
-      jobId: newJobId,
-      status: "queued",
-      projectId: sourceJob.projectId,
-      revisionId: newRevision.id
-    };
-
-    return reply.code(202).send(response);
   });
 
   app.post("/v1/jobs/:jobId/fork", async (request, reply) => {
-    const { jobId } = request.params as { jobId: string };
-    const sourceJob = await store.getJob(jobId);
+    try {
+      const { jobId } = request.params as { jobId: string };
+      const sourceJob = await store.getJob(jobId);
 
-    if (!sourceJob) {
-      return reply.code(404).send({ message: "Job not found" });
+      if (!sourceJob) {
+        return reply.code(404).send({ message: "Job not found" });
+      }
+
+      const sourceRevision = await store.getRevision(sourceJob.revisionId);
+      if (!sourceRevision) {
+        return reply.code(404).send({ message: "Revision not found" });
+      }
+
+      const newRevision = await store.createRevision(
+        crypto.randomUUID(),
+        sourceJob.projectId,
+        sourceRevision.shapeDefinition,
+        sourceJob.revisionId
+      );
+
+      const payload = {
+        ...sourceJob.payload,
+        projectId: sourceJob.projectId,
+        parentRevisionId: sourceJob.revisionId,
+        shapeDefinition: sourceRevision.shapeDefinition
+      };
+
+      const newJobId = crypto.randomUUID();
+      await store.createQueuedJob(newJobId, sourceJob.projectId, newRevision.id, payload);
+      await enqueueExportJob(newJobId);
+
+      const response: CreateJobResponse = {
+        jobId: newJobId,
+        status: "queued",
+        projectId: sourceJob.projectId,
+        revisionId: newRevision.id
+      };
+
+      return reply.code(202).send(response);
+    } catch {
+      return reply.code(500).send({ message: "Internal server error" });
     }
-
-    const sourceRevision = await store.getRevision(sourceJob.revisionId);
-    if (!sourceRevision) {
-      return reply.code(404).send({ message: "Revision not found" });
-    }
-
-    const newRevision = await store.createRevision(
-      crypto.randomUUID(),
-      sourceJob.projectId,
-      sourceRevision.shapeDefinition,
-      sourceJob.revisionId
-    );
-
-    const payload = {
-      ...sourceJob.payload,
-      projectId: sourceJob.projectId,
-      parentRevisionId: sourceJob.revisionId,
-      shapeDefinition: sourceRevision.shapeDefinition
-    };
-
-    const newJobId = crypto.randomUUID();
-    await store.createQueuedJob(newJobId, sourceJob.projectId, newRevision.id, payload);
-    await queue.add("export", { jobId: newJobId }, { jobId: newJobId });
-
-    const response: CreateJobResponse = {
-      jobId: newJobId,
-      status: "queued",
-      projectId: sourceJob.projectId,
-      revisionId: newRevision.id
-    };
-
-    return reply.code(202).send(response);
   });
 
   app.get("/v1/jobs/:jobId/artifacts", async (request, reply) => {

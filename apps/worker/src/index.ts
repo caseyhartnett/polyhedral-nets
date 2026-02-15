@@ -5,13 +5,38 @@ import {
   renderTemplatePdf,
   renderTemplateStl
 } from "@torrify/geometry-engine";
+import type { CanonicalGeometry, SvgLayer } from "@torrify/shared-types";
 import { PgJobStore } from "@torrify/job-store";
 
 const store = new PgJobStore();
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://127.0.0.1:6379");
+function parseEnvInt(name: string, fallback: number, min = 1): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isFinite(value) || value < min) return fallback;
+  return value;
+}
+
+function buildRedisConnection(url: URL): {
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  db?: number;
+} {
+  const database = Number.parseInt(url.pathname.replace("/", ""), 10);
+  return {
+    host: url.hostname,
+    port: Number.parseInt(url.port || "6379", 10),
+    username: url.username || undefined,
+    password: url.password || undefined,
+    db: Number.isFinite(database) ? database : undefined
+  };
+}
+
 const redisConnection = {
-  host: redisUrl.hostname,
-  port: Number(redisUrl.port || "6379")
+  ...buildRedisConnection(redisUrl)
 };
 
 async function startWorker(): Promise<void> {
@@ -34,14 +59,15 @@ async function startWorker(): Promise<void> {
 
       try {
         const geometry = buildCanonicalGeometry(job.payload.shapeDefinition);
+        const layeredGeometry = filterTemplateLayers(geometry, job.payload.svgLayers);
         const artifacts: { svg?: string; pdf?: string; stl?: string } = {};
 
         if (job.payload.exportFormats.includes("svg")) {
-          artifacts.svg = renderTemplateSvg(geometry);
+          artifacts.svg = renderTemplateSvg(layeredGeometry);
         }
 
         if (job.payload.exportFormats.includes("pdf")) {
-          artifacts.pdf = renderTemplatePdf(geometry);
+          artifacts.pdf = renderTemplatePdf(layeredGeometry);
         }
 
         if (job.payload.exportFormats.includes("stl")) {
@@ -63,9 +89,31 @@ async function startWorker(): Promise<void> {
     },
     {
       connection: redisConnection,
-      concurrency: Number(process.env.WORKER_CONCURRENCY ?? "2")
+      concurrency: parseEnvInt("WORKER_CONCURRENCY", 2)
     }
   );
+
+  let shuttingDown = false;
+  const shutdown = async (signal: string): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[worker] received ${signal}, shutting down`);
+    try {
+      await worker.close();
+      await store.close();
+      process.exit(0);
+    } catch (error) {
+      console.error("[worker] shutdown error", error);
+      process.exit(1);
+    }
+  };
+
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
 
   worker.on("failed", (job, err) => {
     console.error(`[worker] failed job ${job?.id}: ${err.message}`);
@@ -76,6 +124,21 @@ async function startWorker(): Promise<void> {
   });
 
   console.log("[worker] BullMQ worker started");
+}
+
+function filterTemplateLayers(geometry: CanonicalGeometry, layers: SvgLayer[]): CanonicalGeometry {
+  if (!layers || layers.length === 0) {
+    return geometry;
+  }
+
+  const allowed = new Set(layers);
+  return {
+    ...geometry,
+    template: {
+      ...geometry.template,
+      paths: geometry.template.paths.filter((path) => allowed.has(path.layer))
+    }
+  };
 }
 
 startWorker().catch((error) => {

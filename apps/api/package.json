@@ -10,8 +10,8 @@
     "dev": "TORRIFY_DATA_DIR=../../data node --watch --import tsx src/server.ts",
     "start": "TORRIFY_DATA_DIR=../../data node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo 'No linter configured yet for @torrify/api'",
-    "test": "node --test dist/*.test.js"
+    "lint": "eslint src --ext .ts --max-warnings=0",
+    "test": "npm run build && node --test dist/*.test.js"
   },
   "dependencies": {
     "@torrify/geometry-engine": "0.1.0",

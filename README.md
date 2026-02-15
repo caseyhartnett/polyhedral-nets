@@ -10,15 +10,32 @@ Monorepo for generating slab-template geometry and export artifacts (SVG/PDF/STL
 - Deterministic geometry engine for:
   - Legacy polygonal forms: prism, frustum, pyramid
   - Polyhedron presets and parameterized polyhedron families
+  - Seam modes (`straight`, `overlap`, `tabbed`) with allowance-driven flap depth for non-straight seams
 - Export generation:
-  - Layered SVG (`cut`, `score`, `guide`)
+  - Layered SVG (`cut`, `score`, `guide`) with selectable layer export via `svgLayers`
   - Vector PDF
   - ASCII STL mesh
 - SvelteKit UI with:
+  - Dark-themed workspace optimized for long sessions
   - Project + revision selection
+  - Project details page (`/projects/:projectId`) with revision/job summaries
   - Dimension builder and polyhedron template builder
   - Live 2D template preview + interactive 3D wireframe preview
   - Job history with fork/retry/cancel and artifact links
+
+## Example outputs
+
+Regenerate these assets with:
+
+```bash
+npm run examples:readme
+```
+
+| Example | Net Template (SVG) | 3D Wireframe (SVG) | Rotating Preview (GIF) |
+| --- | --- | --- | --- |
+| Legacy hex prism | ![Legacy hex prism net](docs/readme-assets/legacy-prism-hex-net.svg) | ![Legacy hex prism wireframe](docs/readme-assets/legacy-prism-hex-wireframe.svg) | ![Legacy hex prism spin](docs/readme-assets/legacy-prism-hex-spin.gif) |
+| Legacy frustum with tabbed seam | ![Legacy frustum tabbed net](docs/readme-assets/legacy-frustum-tabbed-net.svg) | ![Legacy frustum tabbed wireframe](docs/readme-assets/legacy-frustum-tabbed-wireframe.svg) | ![Legacy frustum tabbed spin](docs/readme-assets/legacy-frustum-tabbed-spin.gif) |
+| Polyhedron dodecahedron | ![Polyhedron dodecahedron net](docs/readme-assets/polyhedron-dodecahedron-net.svg) | ![Polyhedron dodecahedron wireframe](docs/readme-assets/polyhedron-dodecahedron-wireframe.svg) | ![Polyhedron dodecahedron spin](docs/readme-assets/polyhedron-dodecahedron-spin.gif) |
 
 ## Requirements
 
@@ -36,6 +53,7 @@ Optional environment variables:
 - `JOB_ATTEMPTS` (default `3`)
 - `JOB_BACKOFF_MS` (default `1000`)
 - `WORKER_CONCURRENCY` (default `2`)
+- `API_BASE_URL` (web server proxy target, default `http://127.0.0.1:3000`)
 
 ## Quick start
 

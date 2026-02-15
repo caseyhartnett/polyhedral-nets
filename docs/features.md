@@ -33,14 +33,19 @@ Supported presets:
 - 2D template path generation with layer assignment:
   - outer edges -> `cut`
   - shared fold edges -> `score`
+- Seam-specific flap generation in unfolded templates:
+  - `straight`: no flap
+  - `overlap`: rectangular flap
+  - `tabbed`: tabbed flap
+- `allowance` is applied as non-straight seam flap depth
 - Canonical metrics output:
   - `bottomRadius`, `topRadius`, `slantHeight`, `surfaceArea`, `faceCount`
 - 3D wireframe preview model generation
 
 ## Export formats
 
-- SVG template export with grouped layers (`cut`, `score`, `guide`)
-- Vector PDF export from canonical paths
+- SVG template export with grouped layers (`cut`, `score`, `guide`) and per-job layer filtering via `svgLayers`
+- Vector PDF export from canonical paths (honors `svgLayers` filtering)
 - Deterministic ASCII STL export from triangulated mesh
 
 ## API workflows
@@ -51,6 +56,8 @@ Supported presets:
   - create/list revisions per project
 - Job workflows:
   - create queued export job (auto project create if omitted)
+    - if `parentRevisionId` is supplied without `projectId`, project is inferred from parent revision
+    - invalid parent/project combinations are rejected
   - list jobs
   - get job details/status
   - cancel queued/running job
@@ -73,7 +80,8 @@ Supported presets:
 
 - Project creation and selection
 - Revision selection and reuse
-- Project summary page with revision/job counts
+- Project summary page with revision/job counts (`/projects/:projectId`)
+- Server-side API proxy routes with shared upstream error handling and binary-safe artifact forwarding
 - Dual builder UI:
   - legacy dimension inputs
   - polyhedron catalog/family selection

@@ -46,6 +46,11 @@ interface NetModel {
   faces: NetFace[];
 }
 
+interface SeamOptions {
+  mode: ShapeDefinition["seamMode"];
+  allowance: number;
+}
+
 interface SegmentCounts {
   bottom: number;
   top: number;
@@ -1210,8 +1215,78 @@ function buildPolyhedronNet(mesh: MeshModel): NetModel {
   return { faces };
 }
 
-function buildTemplatePathsFromNet(net: NetModel): LayerPath[] {
-  const edgeMap = new Map<string, { a: Point2; b: Point2; count: number }>();
+interface BoundaryEdge {
+  key: string;
+  a: Point2;
+  b: Point2;
+}
+
+function pickSeamBoundaryEdge(edges: BoundaryEdge[]): BoundaryEdge | undefined {
+  return [...edges].sort((left, right) => {
+    const lengthDiff = edgeLength2D(right.a, right.b) - edgeLength2D(left.a, left.b);
+    if (Math.abs(lengthDiff) > EPSILON) {
+      return lengthDiff;
+    }
+
+    const leftMidX = (left.a.x + left.b.x) / 2;
+    const rightMidX = (right.a.x + right.b.x) / 2;
+    if (Math.abs(leftMidX - rightMidX) > EPSILON) {
+      return leftMidX - rightMidX;
+    }
+
+    const leftMidY = (left.a.y + left.b.y) / 2;
+    const rightMidY = (right.a.y + right.b.y) / 2;
+    if (Math.abs(leftMidY - rightMidY) > EPSILON) {
+      return leftMidY - rightMidY;
+    }
+
+    return left.key.localeCompare(right.key);
+  })[0];
+}
+
+function seamNormal(a: Point2, b: Point2, netCentroid: Point2): Pt2 {
+  const edge = sub2(b, a);
+  const n1 = unit2({ x: -edge.y, y: edge.x });
+  const n2 = scale2(n1, -1);
+  const midpoint = scale2(add2(a, b), 0.5);
+  const toMid = sub2(midpoint, netCentroid);
+  return dot2(toMid, n1) >= dot2(toMid, n2) ? n1 : n2;
+}
+
+function seamDepth(edgeLength: number, allowance: number): number {
+  const defaultDepth = edgeLength * 0.08;
+  const requestedDepth = allowance > 0 ? allowance : defaultDepth;
+  const maxDepth = edgeLength * 0.35;
+  return Math.min(Math.max(requestedDepth, edgeLength * 0.03), maxDepth);
+}
+
+function buildOverlapFlap(a: Point2, b: Point2, normal: Pt2, depth: number): Point2[] {
+  const aOut = add2(a, scale2(normal, depth));
+  const bOut = add2(b, scale2(normal, depth));
+  return [a, aOut, bOut, b];
+}
+
+function buildTabbedFlap(a: Point2, b: Point2, normal: Pt2, depth: number): Point2[] {
+  const edge = sub2(b, a);
+  const length = len2(edge);
+  const along = unit2(edge);
+  const segmentCount = Math.max(4, Math.min(10, Math.round(length / 30) * 2));
+  const points: Point2[] = [a];
+
+  for (let i = 0; i <= segmentCount; i += 1) {
+    const t = i / segmentCount;
+    const base = add2(a, scale2(along, length * t));
+    const toothDepth =
+      i === 0 || i === segmentCount ? depth : i % 2 === 0 ? depth * 0.6 : depth * 1.15;
+    points.push(add2(base, scale2(normal, toothDepth)));
+  }
+
+  points.push(b);
+  return points;
+}
+
+function buildTemplatePathsFromNet(net: NetModel, seam: SeamOptions): LayerPath[] {
+  const edgeMap = new Map<string, { a: Point2; b: Point2; count: number; key: string }>();
 
   for (const face of net.faces) {
     const pts = face.points;
@@ -1223,22 +1298,44 @@ function buildTemplatePathsFromNet(net: NetModel): LayerPath[] {
       if (existing) {
         existing.count += 1;
       } else {
-        edgeMap.set(key, { a, b, count: 1 });
+        edgeMap.set(key, { a, b, count: 1, key });
       }
     }
   }
 
+  const boundaryEdges = Array.from(edgeMap.values())
+    .filter((edge) => edge.count === 1)
+    .map((edge) => ({ key: edge.key, a: edge.a, b: edge.b }));
   const cutEdges: LayerPath[] = [];
   const scoreEdges: LayerPath[] = [];
+  const seamEdge = seam.mode === "straight" ? undefined : pickSeamBoundaryEdge(boundaryEdges);
 
   for (const edge of edgeMap.values()) {
     if (edge.count === 1) {
-      cutEdges.push(withLayer("cut", [edge.a, edge.b], false));
+      if (seamEdge && seamEdge.key === edge.key) {
+        scoreEdges.push(withLayer("score", [edge.a, edge.b], false));
+      } else {
+        cutEdges.push(withLayer("cut", [edge.a, edge.b], false));
+      }
     } else if (edge.count === 2) {
       scoreEdges.push(withLayer("score", [edge.a, edge.b], false));
     } else {
       throw new Error("Invalid net: more than two faces share the same unfolded edge");
     }
+  }
+
+  if (seamEdge && seam.mode !== "straight") {
+    const allPoints = net.faces.flatMap((face) => face.points);
+    const centroid = centroid2(allPoints);
+    const normal = seamNormal(seamEdge.a, seamEdge.b, centroid);
+    const length = edgeLength2D(seamEdge.a, seamEdge.b);
+    const depth = seamDepth(length, seam.allowance);
+    const flapPoints =
+      seam.mode === "tabbed"
+        ? buildTabbedFlap(seamEdge.a, seamEdge.b, normal, depth)
+        : buildOverlapFlap(seamEdge.a, seamEdge.b, normal, depth);
+
+    cutEdges.push(withLayer("cut", flapPoints, false));
   }
 
   return [...cutEdges, ...scoreEdges];
@@ -1311,12 +1408,6 @@ function buildWarnings(def: ShapeDefinition): string[] {
   if (def.profilePoints.length > 0) {
     warnings.push("profilePoints are ignored in polygonal v2 geometry");
   }
-  if (def.seamMode !== "straight") {
-    warnings.push("seamMode is currently rendered as straight seam in polygonal v2 geometry");
-  }
-  if (def.allowance > 0 && def.seamMode !== "straight") {
-    warnings.push("allowance is not yet applied to polygonal seam flap generation");
-  }
   if (def.thickness >= def.bottomWidth / 2) {
     warnings.push("thickness is high relative to base radius; fabrication may be difficult");
   }
@@ -1340,7 +1431,7 @@ export function buildShapeDebugModel(def: ShapeDefinition): ShapeDebugModel {
 
     const mesh = buildPolyhedronMesh(polyhedron.preset, polyhedron.edgeLength, polyhedron.ringSides);
     const net = buildPolyhedronNet(mesh);
-    const rawPaths = buildTemplatePathsFromNet(net);
+    const rawPaths = buildTemplatePathsFromNet(net, { mode: def.seamMode, allowance: def.allowance });
     const normalizedPaths = normalizePaths(rawPaths, 10);
     const bounds = buildBounds(normalizedPaths);
     const template: FlattenedTemplate = {
@@ -1363,7 +1454,7 @@ export function buildShapeDebugModel(def: ShapeDefinition): ShapeDebugModel {
 
   const mesh = buildMesh(def, counts);
   const net = buildNet(mesh, counts);
-  const rawPaths = buildTemplatePathsFromNet(net);
+  const rawPaths = buildTemplatePathsFromNet(net, { mode: def.seamMode, allowance: def.allowance });
   const normalizedPaths = normalizePaths(rawPaths, 10);
   const bounds = buildBounds(normalizedPaths);
   const template: FlattenedTemplate = {
@@ -1439,15 +1530,15 @@ export function renderTemplateSvg(geometry: CanonicalGeometry): string {
       const pathEls = paths
         .map(
           (path) =>
-            `<path class=\"${path.layer}\" style=\"${styleForLayer(path.layer)}\" d=\"${pointsToPath(path.points, path.closed)}\" />`
+            `<path class="${path.layer}" style="${styleForLayer(path.layer)}" d="${pointsToPath(path.points, path.closed)}" />`
         )
         .join("\n    ");
 
-      return `  <g id=\"${layer}\">\n    ${pathEls}\n  </g>`;
+      return `  <g id="${layer}">\n    ${pathEls}\n  </g>`;
     })
     .join("\n");
 
-  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${width}${unit}\" height=\"${height}${unit}\" viewBox=\"0 0 ${width} ${height}\">\n${groups}\n</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}${unit}" height="${height}${unit}" viewBox="0 0 ${width} ${height}">\n${groups}\n</svg>`;
 }
 
 function unitToPdfScale(units: "mm" | "in"): number {
@@ -1493,7 +1584,6 @@ export function renderTemplatePdf(geometry: CanonicalGeometry): string {
   const heightPt = geometry.template.height * scale;
   const pageWidth = widthPt + margin * 2;
   const pageHeight = heightPt + margin * 2;
-
   let content = "q\n";
   content += `1 0 0 1 ${margin.toFixed(3)} ${margin.toFixed(3)} cm\n`;
 
@@ -1660,11 +1750,11 @@ export function createWireframeSvg(preview: WireframePreview): string {
   const lineEls = preview.lines
     .map(
       (line) =>
-        `<line x1=\"${line.x1.toFixed(3)}\" y1=\"${line.y1.toFixed(3)}\" x2=\"${line.x2.toFixed(3)}\" y2=\"${line.y2.toFixed(3)}\" stroke=\"#111\" stroke-width=\"1.2\" />`
+        `<line x1="${line.x1.toFixed(3)}" y1="${line.y1.toFixed(3)}" x2="${line.x2.toFixed(3)}" y2="${line.y2.toFixed(3)}" stroke="#111" stroke-width="1.2" />`
     )
     .join("\n  ");
 
-  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${preview.width}\" height=\"${preview.height}\" viewBox=\"0 0 ${preview.width} ${preview.height}\">\n  ${lineEls}\n</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${preview.width}" height="${preview.height}" viewBox="0 0 ${preview.width} ${preview.height}">\n  ${lineEls}\n</svg>`;
 }
 
 export function meshEdgeIncidence(mesh: MeshModel): Map<string, number[]> {

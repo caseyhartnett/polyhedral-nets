@@ -64,8 +64,8 @@
   :global(body) {
     margin: 0;
     font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-    background: linear-gradient(150deg, #f5fbff, #f5efe1);
-    color: #1f2937;
+    background: linear-gradient(160deg, #1e1e1e, #252526);
+    color: #f3f4f6;
   }
 
   main {
@@ -75,11 +75,12 @@
   }
 
   section {
-    background: rgba(255, 255, 255, 0.88);
-    border: 1px solid #e5e7eb;
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
     border-radius: 12px;
     padding: 0.8rem 1rem;
     margin-bottom: 1rem;
+    box-shadow: 0 12px 28px rgba(5, 10, 24, 0.4);
   }
 
   ul {
@@ -92,5 +93,10 @@
 
   li a {
     margin-left: 0.5rem;
+    color: #2563eb;
+  }
+
+  a {
+    color: #93c5fd;
   }
 </style>

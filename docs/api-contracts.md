@@ -52,6 +52,8 @@ Responses:
 - `201`: created revision
 - `400`: validation error
 - `404`: project not found
+- `404`: parent revision not found
+- `409`: parent revision belongs to a different project
 
 ### `GET /v1/projects/:projectId/revisions`
 
@@ -65,6 +67,7 @@ Responses:
 ### `POST /v1/jobs`
 
 Creates revision + queued export job. If `projectId` is omitted, API auto-creates an `Untitled Project`.
+If `parentRevisionId` is provided and `projectId` is omitted, the parent revision project is reused.
 
 Request:
 
@@ -78,11 +81,18 @@ Request:
 }
 ```
 
+Notes:
+
+- `svgLayers` defaults to `["cut","score","guide"]`
+- `svgLayers` controls which layers are emitted for SVG and PDF artifacts
+
 Responses:
 
 - `202`: `{ "jobId": "uuid", "status": "queued", "projectId": "uuid", "revisionId": "uuid" }`
 - `400`: validation error
 - `404`: referenced project not found
+- `404`: parent revision not found
+- `409`: parent revision belongs to a different project
 
 ### `GET /v1/jobs`
 

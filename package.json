@@ -10,20 +10,26 @@
   ],
   "scripts": {
     "build": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/client-sdk build && npm run -w @torrify/api build && npm run -w @torrify/worker build && npm run -w @torrify/web build",
+    "examples:readme": "node scripts/generate-readme-examples.mjs",
     "dev": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/api dev",
     "dev:worker": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/worker dev",
     "dev:web": "npm run -w @torrify/web dev",
     "dev:all": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && concurrently -k -n api,worker,web -c cyan,magenta,green \"npm run -w @torrify/api dev\" \"npm run -w @torrify/worker dev\" \"npm run -w @torrify/web dev\"",
     "lint": "npm run --ws lint",
     "test": "npm run --ws test",
-    "typecheck": "npm run --ws typecheck"
+    "typecheck": "npm run -w @torrify/shared-types build && npm run -w @torrify/job-store build && npm run -w @torrify/geometry-engine build && npm run --ws typecheck"
   },
   "devDependencies": {
+    "@eslint/js": "^9.21.0",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
     "@typescript-eslint/types": "^8.24.1",
     "concurrently": "^9.2.1",
     "cookie": "^0.6.0",
-    "@types/pg": "^8.11.10"
+    "eslint": "^9.21.0",
+    "globals": "^15.15.0",
+    "omggif": "^1.0.10",
+    "typescript-eslint": "^8.24.1"
   },
   "engines": {
     "node": ">=20"

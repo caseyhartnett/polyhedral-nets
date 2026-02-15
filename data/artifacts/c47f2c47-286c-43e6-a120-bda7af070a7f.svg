@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="180.000mm" height="240.000mm" viewBox="0 0 180.000 240.000">
+  <g id="cut">
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 130.0000 130.0000 L 190.0000 130.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 190.0000 130.0000 L 190.0000 190.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 190.0000 190.0000 L 130.0000 190.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 130.0000 70.0000 L 130.0000 130.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 70.0000 130.0000 L 70.0000 70.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 130.0000 190.0000 L 130.0000 250.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 130.0000 250.0000 L 70.0000 250.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 70.0000 250.0000 L 70.0000 190.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 10.0000 130.0000 L 70.0000 130.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 70.0000 190.0000 L 10.0000 190.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 10.0000 190.0000 L 10.0000 130.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 70.0000 70.0000 L 70.0000 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 70.0000 10.0000 L 130.0000 10.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 130.0000 10.0000 L 130.0000 70.0000" />
+  </g>
+  <g id="score">
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 70.0000 130.0000 L 130.0000 130.0000" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 130.0000 130.0000 L 130.0000 190.0000" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 130.0000 190.0000 L 70.0000 190.0000" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 70.0000 190.0000 L 70.0000 130.0000" />
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 70.0000 70.0000 L 130.0000 70.0000" />
+  </g>
+  <g id="guide">
+    
+  </g>
+</svg>

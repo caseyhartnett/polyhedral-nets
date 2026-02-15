@@ -49,10 +49,6 @@
       "_environment.js"
     ]
   },
-  "_api.js": {
-    "file": "chunks/api.js",
-    "name": "api"
-  },
   "_context.js": {
     "file": "chunks/context.js",
     "name": "context"
@@ -90,6 +86,10 @@
       "_equality.js"
     ]
   },
+  "_proxy.js": {
+    "file": "chunks/proxy.js",
+    "name": "proxy"
+  },
   "_shared.js": {
     "file": "chunks/shared.js",
     "name": "shared",
@@ -111,7 +111,7 @@
       "_context.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.BqgLi8im.css"
+      "_app/immutable/assets/_page.BZa92j8R.css"
     ]
   },
   "src/routes/api/jobs/+server.ts": {
@@ -120,7 +120,7 @@
     "src": "src/routes/api/jobs/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/+server.ts": {
@@ -129,7 +129,7 @@
     "src": "src/routes/api/jobs/[jobId]/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/cancel/+server.ts": {
@@ -138,7 +138,7 @@
     "src": "src/routes/api/jobs/[jobId]/cancel/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/fork/+server.ts": {
@@ -147,7 +147,7 @@
     "src": "src/routes/api/jobs/[jobId]/fork/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/pdf/+server.ts": {
@@ -156,7 +156,7 @@
     "src": "src/routes/api/jobs/[jobId]/pdf/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/retry/+server.ts": {
@@ -165,7 +165,7 @@
     "src": "src/routes/api/jobs/[jobId]/retry/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/stl/+server.ts": {
@@ -174,7 +174,7 @@
     "src": "src/routes/api/jobs/[jobId]/stl/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/jobs/[jobId]/svg/+server.ts": {
@@ -183,7 +183,7 @@
     "src": "src/routes/api/jobs/[jobId]/svg/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/projects/+server.ts": {
@@ -192,7 +192,7 @@
     "src": "src/routes/api/projects/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/projects/[projectId]/+server.ts": {
@@ -201,7 +201,7 @@
     "src": "src/routes/api/projects/[projectId]/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/api/projects/[projectId]/revisions/+server.ts": {
@@ -210,7 +210,7 @@
     "src": "src/routes/api/projects/[projectId]/revisions/+server.ts",
     "isEntry": true,
     "imports": [
-      "_api.js"
+      "_proxy.js"
     ]
   },
   "src/routes/projects/[projectId]/+page.svelte": {
@@ -223,7 +223,7 @@
       "_context.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.C-i3SSiF.css"
+      "_app/immutable/assets/_page.h6Ep-ngg.css"
     ]
   },
   "src/routes/projects/[projectId]/+page.ts": {
