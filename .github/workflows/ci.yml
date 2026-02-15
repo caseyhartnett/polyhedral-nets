@@ -3,6 +3,9 @@ name: ci
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -18,6 +21,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
@@ -26,6 +30,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     needs: validate
     steps:
       - uses: actions/checkout@v4
@@ -34,4 +39,28 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm audit --audit-level=high
+      - name: npm audit (retry transient network failures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          attempts=3
+          for attempt in $(seq 1 "$attempts"); do
+            echo "npm audit attempt $attempt/$attempts"
+            out="$(mktemp)"
+            set +e
+            npm audit --audit-level=high >"$out" 2>&1
+            code=$?
+            set -e
+            cat "$out"
+
+            if [ "$code" -eq 0 ]; then
+              exit 0
+            fi
+
+            if grep -qiE "EAI_AGAIN|ETIMEDOUT|ECONNRESET|ENOTFOUND|audit endpoint returned an error|network" "$out" && [ "$attempt" -lt "$attempts" ]; then
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            exit "$code"
+          done
