@@ -10,12 +10,15 @@ Monorepo for generating slab-template geometry and export artifacts (SVG/PDF/STL
 - Deterministic geometry engine for:
   - Legacy polygonal forms: prism, frustum, pyramid
   - Polyhedron presets and parameterized polyhedron families
+  - Seam modes (`straight`, `overlap`, `tabbed`) with allowance-driven flap depth for non-straight seams
 - Export generation:
-  - Layered SVG (`cut`, `score`, `guide`)
+  - Layered SVG (`cut`, `score`, `guide`) with selectable layer export via `svgLayers`
   - Vector PDF
   - ASCII STL mesh
 - SvelteKit UI with:
+  - Dark-themed workspace optimized for long sessions
   - Project + revision selection
+  - Project details page (`/projects/:projectId`) with revision/job summaries
   - Dimension builder and polyhedron template builder
   - Live 2D template preview + interactive 3D wireframe preview
   - Job history with fork/retry/cancel and artifact links
@@ -36,6 +39,7 @@ Optional environment variables:
 - `JOB_ATTEMPTS` (default `3`)
 - `JOB_BACKOFF_MS` (default `1000`)
 - `WORKER_CONCURRENCY` (default `2`)
+- `API_BASE_URL` (web server proxy target, default `http://127.0.0.1:3000`)
 
 ## Quick start
 

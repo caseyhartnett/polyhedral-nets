@@ -201,6 +201,16 @@ function makeNetLines(shape: ShapeDebugModel): Array<{ x1: number; y1: number; x
   return lines;
 }
 
+function templateSignature(shape: ReturnType<typeof buildCanonicalGeometry>): string {
+  return shape.template.paths
+    .map((path) => {
+      const points = path.points.map((p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(";");
+      return `${path.layer}:${path.closed ? "1" : "0"}:${points}`;
+    })
+    .sort()
+    .join("|");
+}
+
 function projectedSilhouetteChecks(shape: ShapeDebugModel): void {
   const wire = buildWireframePreview({
     schemaVersion: "1.0",
@@ -645,5 +655,51 @@ test("invalid edge counts are rejected", () => {
         segments: 6
       }),
     /ringSides/i
+  );
+});
+
+test("seam modes produce distinct unfolded templates", () => {
+  const base = makeShape({
+    height: 120,
+    bottomWidth: 90,
+    topWidth: 120,
+    segments: 6,
+    bottomSegments: 6,
+    topSegments: 6,
+    allowance: 8
+  });
+
+  const straight = buildCanonicalGeometry({ ...base, seamMode: "straight" });
+  const overlap = buildCanonicalGeometry({ ...base, seamMode: "overlap" });
+  const tabbed = buildCanonicalGeometry({ ...base, seamMode: "tabbed" });
+
+  const straightSig = templateSignature(straight);
+  const overlapSig = templateSignature(overlap);
+  const tabbedSig = templateSignature(tabbed);
+
+  assert.notEqual(straightSig, overlapSig, "overlap seam should differ from straight seam output");
+  assert.notEqual(straightSig, tabbedSig, "tabbed seam should differ from straight seam output");
+  assert.notEqual(overlapSig, tabbedSig, "tabbed seam should differ from overlap seam output");
+  assert.equal(
+    overlap.warnings.some((warning) => warning.includes("seamMode is currently rendered as straight seam")),
+    false
+  );
+});
+
+test("allowance affects non-straight seam flap depth", () => {
+  const base = makeShape({
+    seamMode: "overlap",
+    segments: 6,
+    bottomSegments: 6,
+    topSegments: 6
+  });
+
+  const lowAllowance = buildCanonicalGeometry({ ...base, allowance: 2 });
+  const highAllowance = buildCanonicalGeometry({ ...base, allowance: 14 });
+
+  assert.notEqual(
+    templateSignature(lowAllowance),
+    templateSignature(highAllowance),
+    "changing allowance should change overlap seam geometry"
   );
 });

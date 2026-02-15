@@ -35,8 +35,6 @@ When `generationMode` is `"polyhedron"`:
 Current geometry warnings include:
 
 - `profilePoints` are accepted but ignored in polygonal v2 geometry
-- `seamMode` values other than `straight` are currently rendered as straight seam
-- `allowance` is not yet applied to seam flap generation for non-straight seams
 - Very large `thickness` relative to base radius may be difficult to fabricate
 - Mixed-face polyhedron presets are marked experimental for manual net adjustment risk
 
@@ -44,6 +42,11 @@ Current geometry warnings include:
 
 - Identical inputs produce deterministic geometry and artifact output
 - 2D template edges are layered as `cut` vs `score` by edge sharing in the unfolded net
+- `seamMode` applies deterministic seam flap behavior on one boundary edge:
+  - `straight`: no flap (original open edge)
+  - `overlap`: rectangular overlap flap
+  - `tabbed`: sawtooth/tabbed flap
+- For non-straight seams, `allowance` controls seam flap depth (clamped to edge-relative bounds)
 - Units (`mm`/`in`) are preserved in SVG/PDF scaling
 
 ## Notes for future implementation
@@ -51,6 +54,4 @@ Current geometry warnings include:
 Inputs currently accepted but not fully used for fabrication-specific geometry:
 
 - `notches`
-- seam allowance flap geometry
-- non-straight seam realization
 - profile-driven body shaping via `profilePoints`
