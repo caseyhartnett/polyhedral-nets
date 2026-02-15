@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ShapeDefinitionSchema, type ShapeDefinition } from '@torrify/shared-types';
 import {
+  availableArtifactFormats,
   artifactFileName,
   artifactMimeType,
   filterTemplateLayers,
@@ -62,5 +63,29 @@ test('artifact metadata helpers return stable values', () => {
   assert.equal(
     artifactFileName('pdf', 'polyhedron', when),
     'torrify-polyhedron-2026-02-15T03-04-05.pdf'
+  );
+});
+
+test('generateExportArtifacts rejects empty export selection', () => {
+  const shapeDefinition = makeShape();
+
+  assert.throws(
+    () =>
+      generateExportArtifacts({
+        shapeDefinition,
+        exportFormats: [],
+        svgLayers: ['cut']
+      }),
+    /Select at least one export format/
+  );
+});
+
+test('availableArtifactFormats returns deterministic download order', () => {
+  assert.deepEqual(
+    availableArtifactFormats({
+      stl: 'stl-content',
+      svg: 'svg-content'
+    }),
+    ['svg', 'stl']
   );
 });

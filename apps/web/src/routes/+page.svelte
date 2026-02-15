@@ -2,10 +2,16 @@
   import { onDestroy } from 'svelte';
   import { buildTemplatePreview, buildSolidPreview } from '$lib/preview';
   import {
+    availableArtifactFormats,
     artifactFileName,
     artifactMimeType,
     generateExportArtifacts
   } from '$lib/exports';
+  import {
+    clampInt,
+    toggleExportFormat,
+    toggleSvgLayerSelection
+  } from '$lib/form-state';
   import type {
     CanonicalGeometry,
     ExportFormat,
@@ -201,7 +207,7 @@
   let lastTemplatePointerX = 0;
   let lastTemplatePointerY = 0;
 
-  $: baseSegments = Math.max(3, Math.floor(shapeDefinition.segments || 3));
+  $: baseSegments = clampInt(shapeDefinition.segments, 3, 256, 6);
   $: normalizedPolyhedron = normalizePolyhedron(shapeDefinition.polyhedron);
   $: activeFamily = isFamilyPreset(normalizedPolyhedron.preset)
     ? familyOptionForPreset(normalizedPolyhedron.preset)
@@ -212,10 +218,10 @@
     polyhedron: builderMode === 'polyhedron' ? normalizedPolyhedron : shapeDefinition.polyhedron,
     segments: baseSegments,
     bottomSegments: useSplitEdges
-      ? Math.max(3, Math.floor(shapeDefinition.bottomSegments || baseSegments))
+      ? clampInt(shapeDefinition.bottomSegments ?? baseSegments, 3, 256, baseSegments)
       : baseSegments,
     topSegments: useSplitEdges
-      ? Math.max(1, Math.floor(shapeDefinition.topSegments || baseSegments))
+      ? clampInt(shapeDefinition.topSegments ?? baseSegments, 1, 256, baseSegments)
       : baseSegments
   } as ShapeDefinition;
   $: liveTemplate = buildTemplatePreview(resolvedShapeDefinition);
@@ -229,9 +235,7 @@
   ).toFixed(3)})`;
   $: effectiveBottomSegments = resolvedShapeDefinition.bottomSegments;
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
-  $: generatedFormats = (['svg', 'pdf', 'stl'] as const).filter((format) =>
-    Boolean(generatedArtifacts[format])
-  );
+  $: generatedFormats = availableArtifactFormats(generatedArtifacts);
 
   onDestroy(() => {
     revokeSvgPreviewUrl();
@@ -367,24 +371,11 @@
   }
 
   function toggleExport(format: ExportFormat): void {
-    if (exportFormats.includes(format)) {
-      exportFormats = exportFormats.filter((value) => value !== format);
-      return;
-    }
-
-    exportFormats = [...exportFormats, format];
+    exportFormats = toggleExportFormat(exportFormats, format);
   }
 
   function toggleSvgLayer(layer: SvgLayer): void {
-    if (svgLayers.includes(layer)) {
-      if (svgLayers.length === 1) {
-        return;
-      }
-      svgLayers = svgLayers.filter((value) => value !== layer);
-      return;
-    }
-
-    svgLayers = [...svgLayers, layer];
+    svgLayers = toggleSvgLayerSelection(svgLayers, layer);
   }
 
   function revokeSvgPreviewUrl(): void {

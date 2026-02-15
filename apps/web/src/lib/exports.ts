@@ -87,3 +87,9 @@ export function artifactFileName(
   const stamp = at.toISOString().replace(/:/g, '-').replace(/\..+$/, '');
   return `torrify-${kind}-${stamp}.${format}`;
 }
+
+export function availableArtifactFormats(
+  artifacts: Partial<Record<ExportFormat, string>>
+): ExportFormat[] {
+  return (['svg', 'pdf', 'stl'] as const).filter((format) => Boolean(artifacts[format]));
+}

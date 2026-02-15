@@ -1,4 +1,14 @@
-# Stateless Refactor Plan (Codex Execution Guide)
+# Stateless Refactor Plan (Archived Execution Guide)
+
+Status: Completed on February 15, 2026.
+
+This document is retained as the historical execution plan.
+For current source-of-truth behavior, use:
+
+- `docs/architecture.md`
+- `docs/features.md`
+- `docs/development.md`
+- `docs/deployment.md`
 
 ## Goal
 Convert the app to a fully stateless browser-first tool:

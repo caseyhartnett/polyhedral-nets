@@ -34,3 +34,16 @@ The app is fully stateless and browser-first.
 - Static web hosting artifact
 - No backend service requirements
 - No Postgres/Redis requirements
+
+## Website and app content structure
+
+Recommended default:
+
+- Keep product pages/docs pages and the app in this same repo.
+- Add additional SvelteKit routes under `apps/web/src/routes/`.
+
+When to split into a separate repo:
+
+- Different team ownership
+- Independent release process
+- Different stack/CMS requirements

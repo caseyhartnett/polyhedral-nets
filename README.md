@@ -68,6 +68,7 @@ npm run dev
 
 ```bash
 npm run build
+npm run lint
 npm run typecheck
 npm run test
 ```
@@ -83,5 +84,14 @@ npm run test
 - `docs/features.md` - implementation feature inventory
 - `docs/architecture.md` - runtime/data architecture
 - `docs/api-contracts.md` - note on removed API layer
+- `docs/deployment.md` - Cloudflare Pages and Railway deployment setup
+- `docs/improvements-roadmap.md` - prioritized codebase improvements and security checklist
+- `docs/release-checklist.md` - release verification and security checks
 - `docs/printability-rules.md` - validation rules and current warnings
 - `docs/development.md` - local development and test commands
+- `docs/stateless-refactor-plan.md` - archived execution plan for the completed stateless migration
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 (`GPL-3.0-only`).
+See `LICENSE`.
