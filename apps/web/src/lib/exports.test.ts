@@ -55,6 +55,59 @@ test('filterTemplateLayers removes unselected template layers', () => {
   assert.ok(filtered.template.paths.every((path) => path.layer === 'cut'));
 });
 
+test('svg perforation converts score lines into short cut-and-gap score segments', () => {
+  const shapeDefinition = makeShape();
+
+  const plain = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score']
+  });
+  const perforated = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score'],
+    svgPerforation: {
+      enabled: true,
+      layers: ['score'],
+      cutLength: 1,
+      gapLength: 1
+    }
+  });
+
+  const plainSvg = plain.artifacts.svg ?? '';
+  const perforatedSvg = perforated.artifacts.svg ?? '';
+
+  const plainScoreSegments = Array.from(plainSvg.matchAll(/<path class="score"[^>]* d="M /g)).length;
+  const perforatedScoreSegments = Array.from(
+    perforatedSvg.matchAll(/<path class="score"[^>]* d="M /g)
+  ).length;
+
+  assert.ok(plainScoreSegments > 0, 'expected baseline score lines to exist');
+  assert.ok(
+    perforatedScoreSegments > plainScoreSegments,
+    'expected perforated output to split score lines into more segments'
+  );
+
+  const segmentLengths = Array.from(
+    perforatedSvg.matchAll(/<path class="score"[^>]* d="M ([0-9.-]+) ([0-9.-]+) L ([0-9.-]+) ([0-9.-]+)"/g)
+  ).map((match) => {
+    const x1 = Number(match[1]);
+    const y1 = Number(match[2]);
+    const x2 = Number(match[3]);
+    const y2 = Number(match[4]);
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return Math.sqrt(dx * dx + dy * dy);
+  });
+
+  assert.ok(segmentLengths.length > 0, 'expected perforated score path segments');
+  assert.ok(
+    Math.max(...segmentLengths) <= 1.05,
+    'perforated score segment lengths should track configured cut length'
+  );
+});
+
 test('artifact metadata helpers return stable values', () => {
   const when = new Date('2026-02-15T03:04:05.999Z');
 

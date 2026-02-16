@@ -61,6 +61,7 @@ export const ShapeDefinitionSchema = z
     notches: z.array(NotchSchema).default([]),
     profilePoints: z.array(ProfilePointSchema).default([]),
     generationMode: z.enum(["legacy", "polyhedron"]).default("legacy"),
+    includeTopCap: z.boolean().default(true),
     polyhedron: PolyhedronDefinitionSchema.optional(),
     // Base edge count; must be >= 3 for supported solids.
     segments: z.number().int().min(3).max(256).default(6),
@@ -73,6 +74,7 @@ export const ShapeDefinitionSchema = z
   .strict()
   .transform((shape) => ({
     ...shape,
+    includeTopCap: shape.includeTopCap ?? true,
     bottomSegments: shape.bottomSegments ?? shape.segments,
     topSegments: shape.topSegments ?? shape.segments
   }))

@@ -224,6 +224,7 @@ function projectedSilhouetteChecks(shape: ShapeDebugModel): void {
     notches: [],
     profilePoints: [],
     generationMode: "legacy",
+    includeTopCap: true,
     segments: shape.counts.bottom,
     bottomSegments: shape.counts.bottom,
     topSegments: shape.counts.top
@@ -705,6 +706,45 @@ test("allowance affects non-straight seam flap depth", () => {
     templateSignature(lowAllowance),
     templateSignature(highAllowance),
     "changing allowance should change overlap seam geometry"
+  );
+});
+
+test("legacy mode can omit top cap from mesh and net", () => {
+  const withTop = buildShapeDebugModel(
+    makeShape({
+      height: 120,
+      bottomWidth: 90,
+      topWidth: 120,
+      segments: 6,
+      bottomSegments: 6,
+      topSegments: 6,
+      includeTopCap: true
+    })
+  );
+  const withoutTop = buildShapeDebugModel(
+    makeShape({
+      height: 120,
+      bottomWidth: 90,
+      topWidth: 120,
+      segments: 6,
+      bottomSegments: 6,
+      topSegments: 6,
+      includeTopCap: false
+    })
+  );
+
+  assert.ok(withTop.mesh.faces.some((face) => face.kind === "top"), "expected top cap in closed mesh");
+  assert.ok(
+    withoutTop.mesh.faces.every((face) => face.kind !== "top"),
+    "expected no top cap faces when includeTopCap=false"
+  );
+  assert.ok(
+    withoutTop.net.faces.length < withTop.net.faces.length,
+    "expected fewer net faces when top cap is omitted"
+  );
+  assert.ok(
+    withoutTop.template.paths.length < withTop.template.paths.length,
+    "expected fewer template paths when top cap is omitted"
   );
 });
 

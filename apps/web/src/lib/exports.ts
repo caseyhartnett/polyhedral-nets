@@ -64,6 +64,13 @@ export interface ExportSheetLayoutOptions {
   includeAlignmentKeys?: boolean;
 }
 
+export interface SvgPerforationOptions {
+  enabled: boolean;
+  layers?: SvgLayer[];
+  cutLength: number;
+  gapLength: number;
+}
+
 export interface GeneratedSvgPage {
   index: number;
   row: number;
@@ -232,6 +239,92 @@ function translatePaths(paths: LayerPath[], dx: number, dy: number): LayerPath[]
 
 function withLayer(layer: SvgLayer, points: Point2[], closed = false): LayerPath {
   return { layer, points, closed };
+}
+
+function pointAlongSegment(start: Point2, end: Point2, t: number): Point2 {
+  return {
+    x: start.x + (end.x - start.x) * t,
+    y: start.y + (end.y - start.y) * t
+  };
+}
+
+function perforateSegment(
+  start: Point2,
+  end: Point2,
+  layer: SvgLayer,
+  cutLength: number,
+  gapLength: number
+): LayerPath[] {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length <= EPSILON) {
+    return [];
+  }
+
+  const period = cutLength + gapLength;
+  if (period <= EPSILON || cutLength >= length - EPSILON) {
+    return [withLayer(layer, [start, end], false)];
+  }
+
+  const output: LayerPath[] = [];
+  let offset = 0;
+
+  while (offset < length - EPSILON) {
+    const cutStart = offset;
+    const cutEnd = Math.min(length, offset + cutLength);
+    if (cutEnd - cutStart > EPSILON) {
+      output.push(
+        withLayer(
+          layer,
+          [pointAlongSegment(start, end, cutStart / length), pointAlongSegment(start, end, cutEnd / length)],
+          false
+        )
+      );
+    }
+    offset += period;
+  }
+
+  return output.length > 0 ? output : [withLayer(layer, [start, end], false)];
+}
+
+function perforatePath(path: LayerPath, cutLength: number, gapLength: number): LayerPath[] {
+  if (path.points.length < 2) {
+    return [];
+  }
+
+  const output: LayerPath[] = [];
+  const limit = path.closed ? path.points.length : path.points.length - 1;
+  for (let i = 0; i < limit; i += 1) {
+    const start = path.points[i];
+    const end = path.points[(i + 1) % path.points.length];
+    output.push(...perforateSegment(start, end, path.layer, cutLength, gapLength));
+  }
+
+  return output;
+}
+
+function applySvgPerforation(
+  geometry: CanonicalGeometry,
+  options: SvgPerforationOptions | undefined
+): CanonicalGeometry {
+  if (!options?.enabled) {
+    return geometry;
+  }
+
+  const layers = new Set(options.layers && options.layers.length > 0 ? options.layers : ['score']);
+  const cutLength = Math.max(options.cutLength, EPSILON);
+  const gapLength = Math.max(options.gapLength, EPSILON);
+
+  return {
+    ...geometry,
+    template: {
+      ...geometry.template,
+      paths: geometry.template.paths.flatMap((path) =>
+        layers.has(path.layer) ? perforatePath(path, cutLength, gapLength) : [path]
+      )
+    }
+  };
 }
 
 function addSplitClosureCutLines(
@@ -869,8 +962,9 @@ export function generateExportArtifacts(options: {
   exportFormats: ExportFormat[];
   svgLayers: SvgLayer[];
   sheetLayout?: ExportSheetLayoutOptions;
+  svgPerforation?: SvgPerforationOptions;
 }): GeneratedArtifacts {
-  const { shapeDefinition, exportFormats, svgLayers, sheetLayout } = options;
+  const { shapeDefinition, exportFormats, svgLayers, sheetLayout, svgPerforation } = options;
 
   if (exportFormats.length === 0) {
     throw new Error('Select at least one export format');
@@ -878,12 +972,13 @@ export function generateExportArtifacts(options: {
 
   const geometry = buildCanonicalGeometry(shapeDefinition);
   const layeredGeometry = filterTemplateLayers(geometry, svgLayers);
+  const layeredSvgGeometry = applySvgPerforation(layeredGeometry, svgPerforation);
   const artifacts: Partial<Record<ExportFormat, string>> = {};
   let svgPages: GeneratedSvgPage[] = [];
 
   if (exportFormats.includes('svg')) {
-    svgPages = buildSvgPagesForLayout(layeredGeometry, sheetLayout);
-    artifacts.svg = svgPages.length > 0 ? svgPages[0].content : renderTemplateSvg(layeredGeometry);
+    svgPages = buildSvgPagesForLayout(layeredSvgGeometry, sheetLayout);
+    artifacts.svg = svgPages.length > 0 ? svgPages[0].content : renderTemplateSvg(layeredSvgGeometry);
   }
 
   if (exportFormats.includes('pdf')) {

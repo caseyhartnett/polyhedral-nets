@@ -13,7 +13,8 @@
   import type {
     ExportSheetLayoutOptions,
     GeneratedSvgPage,
-    MaterialSizePreset
+    MaterialSizePreset,
+    SvgPerforationOptions
   } from '$lib/exports';
   import { renderTemplateSvg } from '@torrify/geometry-engine';
   import { clampInt, toggleExportFormat, toggleSvgLayerSelection } from '$lib/form-state';
@@ -306,6 +307,7 @@
     notches: [],
     profilePoints: [],
     generationMode: 'legacy',
+    includeTopCap: true,
     polyhedron: { ...initialPolyhedron },
     segments: 6,
     bottomSegments: 6,
@@ -325,6 +327,9 @@
   let customMaterialWidth = 12;
   let customMaterialHeight = 24;
   let customMaterialUnits: Units = 'in';
+  let cricutPerforationEnabled = true;
+  let cricutPerforationCutLength = 0.8;
+  let cricutPerforationGapLength = 0.8;
 
   let generating = false;
   let error = '';
@@ -400,6 +405,10 @@
   $: selectedMaterialPresetOption =
     MATERIAL_SIZE_PRESET_OPTIONS.find((option) => option.value === materialSizePreset) ??
     MATERIAL_SIZE_PRESET_OPTIONS[0];
+  $: usingCricutMaterial =
+    materialSizePreset === 'cricut-mat-12x12' ||
+    materialSizePreset === 'cricut-mat-12x24' ||
+    materialSizePreset === 'cricut-smart-13x24';
   $: previewSheetGuides = buildPreviewSheetGuides();
   $: filteredHelpItems = HELP_ITEMS.filter((item) => {
     const term = helpQuery.trim().toLowerCase();
@@ -762,11 +771,12 @@
   function setBuilderMode(mode: ShapeBuilderMode): void {
     builderMode = mode;
     if (mode === 'polyhedron') {
-      shapeDefinition = {
-        ...shapeDefinition,
-        generationMode: mode,
-        polyhedron: normalizePolyhedron(shapeDefinition.polyhedron)
-      };
+    shapeDefinition = {
+      ...shapeDefinition,
+      generationMode: mode,
+      includeTopCap: mode === 'polyhedron' ? true : shapeDefinition.includeTopCap,
+      polyhedron: normalizePolyhedron(shapeDefinition.polyhedron)
+    };
       useSplitEdges = false;
       syncPolyhedronUiState(shapeDefinition.polyhedron);
       return;
@@ -804,42 +814,77 @@
   }
 
   function makeSvgPreviewFriendly(svg: string): string {
-    if (svg.includes('id="preview-display-style"')) {
+    if (svg.includes('data-preview-friendly="1"')) {
       return svg;
     }
 
-    const overlay = [
-      '  <rect id="preview-bg" x="0" y="0" width="100%" height="100%" fill="#ffffff" />',
-      '  <style id="preview-display-style"><![CDATA[',
-      '    path.cut {',
-      '      stroke:#0f172a !important;',
-      '      stroke-width:1.35 !important;',
-      '      vector-effect:non-scaling-stroke !important;',
-      '    }',
-      '    path.score {',
-      '      stroke:#0284c7 !important;',
-      '      stroke-width:1.15 !important;',
-      '      stroke-dasharray:5 4 !important;',
-      '      vector-effect:non-scaling-stroke !important;',
-      '    }',
-      '    path.guide {',
-      '      stroke:#f97316 !important;',
-      '      stroke-width:1.0 !important;',
-      '      stroke-dasharray:3 3 !important;',
-      '      vector-effect:non-scaling-stroke !important;',
-      '      opacity:0.9 !important;',
-      '    }',
-      '    #split-guides-preview line {',
-      '      stroke:#dc2626 !important;',
-      '      stroke-width:1.4 !important;',
-      '      stroke-dasharray:8 5 !important;',
-      '      vector-effect:non-scaling-stroke !important;',
-      '      opacity:0.95 !important;',
-      '    }',
-      '  ]]></style>'
-    ].join('\n');
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svg, 'image/svg+xml');
+      const root = doc.documentElement;
+      if (root.tagName.toLowerCase() !== 'svg') {
+        return svg;
+      }
 
-    return svg.replace(/(<svg[^>]*>)/, `$1\n${overlay}`);
+      root.setAttribute('data-preview-friendly', '1');
+
+      const existingBg = root.querySelector('#preview-bg');
+      if (!existingBg) {
+        const rect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('id', 'preview-bg');
+        rect.setAttribute('x', '0');
+        rect.setAttribute('y', '0');
+        rect.setAttribute('width', '100%');
+        rect.setAttribute('height', '100%');
+        rect.setAttribute('fill', '#ffffff');
+        root.insertBefore(rect, root.firstChild);
+      }
+
+      const setPathStyle = (path: Element, layer: 'cut' | 'score' | 'guide'): void => {
+        path.removeAttribute('style');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('vector-effect', 'non-scaling-stroke');
+
+        if (layer === 'cut') {
+          path.setAttribute('stroke', '#0f172a');
+          path.setAttribute('stroke-width', '1.35');
+          path.removeAttribute('stroke-dasharray');
+          path.removeAttribute('opacity');
+          return;
+        }
+
+        if (layer === 'score') {
+          path.setAttribute('stroke', '#0284c7');
+          path.setAttribute('stroke-width', '1.15');
+          path.setAttribute('stroke-dasharray', '5 4');
+          path.removeAttribute('opacity');
+          return;
+        }
+
+        path.setAttribute('stroke', '#f97316');
+        path.setAttribute('stroke-width', '1.0');
+        path.setAttribute('stroke-dasharray', '3 3');
+        path.setAttribute('opacity', '0.9');
+      };
+
+      for (const path of root.querySelectorAll('path.cut')) setPathStyle(path, 'cut');
+      for (const path of root.querySelectorAll('path.score')) setPathStyle(path, 'score');
+      for (const path of root.querySelectorAll('path.guide')) setPathStyle(path, 'guide');
+
+      for (const line of root.querySelectorAll('#split-guides-preview line')) {
+        line.removeAttribute('style');
+        line.setAttribute('stroke', '#dc2626');
+        line.setAttribute('stroke-width', '1.4');
+        line.setAttribute('stroke-dasharray', '8 5');
+        line.setAttribute('vector-effect', 'non-scaling-stroke');
+        line.setAttribute('opacity', '0.95');
+      }
+
+      const serializer = new XMLSerializer();
+      return serializer.serializeToString(root);
+    } catch {
+      return svg;
+    }
   }
 
   function previewGeneratedSvgSheet(index: number): void {
@@ -983,12 +1028,26 @@
               }
             : undefined
       };
+      const svgPerforation: SvgPerforationOptions | undefined =
+        usingCricutMaterial && cricutPerforationEnabled
+          ? {
+              enabled: true,
+              layers: ['score'],
+              cutLength: Math.max(0.05, Number(cricutPerforationCutLength) || 0.8),
+              gapLength: Math.max(0.05, Number(cricutPerforationGapLength) || 0.8)
+            }
+          : undefined;
+      const exportLayers =
+        usingCricutMaterial
+          ? (Array.from(new Set<SvgLayer>([...svgLayers, 'cut', 'score'])) as SvgLayer[])
+          : svgLayers;
 
       const generated = generateExportArtifacts({
         shapeDefinition: resolvedShapeDefinition,
         exportFormats,
-        svgLayers,
-        sheetLayout: sheetLayoutOptions
+        svgLayers: exportLayers,
+        sheetLayout: sheetLayoutOptions,
+        svgPerforation
       });
 
       generatedGeometry = generated.geometry;
@@ -996,7 +1055,7 @@
       generatedSvgPages = generated.svgPages;
       generatedSvgPreviewSheetIndex = 0;
       generatedSvgPreviewMode = generated.svgPages.length > 1 ? 'combined' : 'sheets';
-      generatedSvgLayerSnapshot = [...svgLayers];
+      generatedSvgLayerSnapshot = [...exportLayers];
       generatedSheetLayoutSnapshot = sheetLayoutOptions;
       generatedAtDate = new Date();
       generatedAt = generatedAtDate.toLocaleString();
@@ -1526,6 +1585,16 @@
           <option value="tabbed">tabbed</option>
         </select>
       </label>
+      {#if builderMode === 'legacy'}
+        <label class="inline-check">
+          <input
+            type="checkbox"
+            bind:checked={shapeDefinition.includeTopCap}
+            disabled={resolvedShapeDefinition.topSegments === 1}
+          />
+          Include top cap piece
+        </label>
+      {/if}
     </div>
 
     <div class="config-group">
@@ -1561,6 +1630,40 @@
           </label>
         {/if}
       </div>
+
+      {#if usingCricutMaterial}
+        <div class="cricut-perf-box">
+          <label class="inline-check">
+            <input type="checkbox" bind:checked={cricutPerforationEnabled} />
+            Perforate score lines for Cricut (keeps base/folds attached)
+          </label>
+          {#if cricutPerforationEnabled}
+            <div class="grid material-grid">
+              <label>
+                <span class="field-title">Perforation cut length ({resolvedShapeDefinition.units})</span>
+                <input
+                  type="number"
+                  min="0.05"
+                  step="0.05"
+                  bind:value={cricutPerforationCutLength}
+                />
+              </label>
+              <label>
+                <span class="field-title">Perforation gap length ({resolvedShapeDefinition.units})</span>
+                <input
+                  type="number"
+                  min="0.05"
+                  step="0.05"
+                  bind:value={cricutPerforationGapLength}
+                />
+              </label>
+            </div>
+            <p class="muted">
+              Start with equal cut/gap values (50% duty), then adjust until folds are flexible but still held.
+            </p>
+          {/if}
+        </div>
+      {/if}
 
       {#if materialSizePreset !== 'none'}
         {#if previewSheetGuides}
@@ -1606,6 +1709,12 @@
 
     <div class="config-group">
       <div class="config-title">2D Layers (SVG/PDF)</div>
+      {#if usingCricutMaterial}
+        <p class="muted">
+          Cricut mode always includes <strong>Cut</strong> (outer separation) and <strong>Score</strong>
+          (piece-to-piece connections).
+        </p>
+      {/if}
       <div class="formats">
         <label
           ><input
@@ -1868,7 +1977,7 @@
       </p>
     {/if}
     {#if svgPreviewUrl}
-      <object data={svgPreviewUrl} type="image/svg+xml" aria-label="Generated SVG template"></object>
+      <img class="svg-preview" src={svgPreviewUrl} alt="Generated SVG template" />
     {:else}
       <p>No SVG generated yet.</p>
     {/if}
@@ -2252,6 +2361,21 @@
     margin: 0;
   }
 
+  .cricut-perf-box {
+    border: 1px solid #3f4352;
+    border-radius: 9px;
+    background: #262b38;
+    padding: 0.55rem 0.6rem;
+    margin: 0.2rem 0 0.45rem;
+  }
+
+  .inline-check {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0 0 0.45rem;
+  }
+
   input,
   select {
     border: 1px solid var(--input-border);
@@ -2410,13 +2534,14 @@
     cursor: grabbing;
   }
 
-  .preview object {
+  .preview .svg-preview {
     width: 100%;
     height: 46vh;
     border: 1px solid var(--card-border);
     border-radius: 10px;
     margin-top: 0.5rem;
     background: #ffffff;
+    object-fit: contain;
   }
 
   .help-panel {
@@ -2582,7 +2707,7 @@
       grid-template-columns: 1fr;
     }
 
-    .preview object {
+    .preview .svg-preview {
       height: 42vh;
     }
 

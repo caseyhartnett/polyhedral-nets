@@ -386,7 +386,8 @@ function buildMesh(def: ShapeDefinition, counts: SegmentCounts): MeshModel {
   faces.push(bottomFace);
   faceId += 1;
 
-  if (counts.top > 1) {
+  const includeTopCap = def.includeTopCap ?? true;
+  if (counts.top > 1 && includeTopCap) {
     const topFace: Face3D = {
       id: faceId,
       kind: "top",
@@ -411,12 +412,15 @@ function buildFrustumLikeNet(mesh: MeshModel, counts: SegmentCounts): NetModel {
     throw new Error("Invariant violation: bottom face missing");
   }
 
-  const bottomSide = edgeLength3D(mesh.vertices[0], mesh.vertices[1]);
-  const topSide = topFace
-    ? edgeLength3D(mesh.vertices[topFace.vertexIndices[0]], mesh.vertices[topFace.vertexIndices[1]])
-    : 0;
-
   const firstSide = sideFaces[0];
+  const bottomSide = edgeLength3D(mesh.vertices[0], mesh.vertices[1]);
+  const topSide =
+    counts.top > 1
+      ? edgeLength3D(
+          mesh.vertices[firstSide.vertexIndices[2]],
+          mesh.vertices[firstSide.vertexIndices[firstSide.vertexIndices.length - 1]]
+        )
+      : 0;
   const lateral = edgeLength3D(
     mesh.vertices[firstSide.vertexIndices[0]],
     mesh.vertices[firstSide.vertexIndices[firstSide.vertexIndices.length - 1]]

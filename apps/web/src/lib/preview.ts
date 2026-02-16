@@ -19,6 +19,7 @@ export interface PreviewShapeDefinition {
   bottomSegments?: number;
   topSegments?: number;
   generationMode?: 'legacy' | 'polyhedron';
+  includeTopCap?: boolean;
   polyhedron?: {
     preset:
       | 'tetrahedron'
@@ -95,6 +96,7 @@ function toShapeDefinition(def: PreviewShapeDefinition): ShapeDefinition {
     notches: (def.notches ?? []) as ShapeDefinition['notches'],
     profilePoints: (def.profilePoints ?? []) as ShapeDefinition['profilePoints'],
     generationMode: def.generationMode ?? 'legacy',
+    includeTopCap: def.includeTopCap ?? true,
     polyhedron: def.polyhedron,
     segments: base,
     bottomSegments: clampInt(def.bottomSegments ?? base, 3, 256, base),
