@@ -64,6 +64,12 @@ In Pages project:
 - `Custom domains` -> `Set up a custom domain`
 - Add your domain/subdomain and follow Cloudflare DNS prompts
 
+If you are using this tool alongside another site (for example, `openpottery.com`):
+
+- Attach `tool.openpottery.com` in this **PolyGoneWild Pages project** under `Custom domains`
+- Keep `openpottery.com` and `www.openpottery.com` attached to the separate **OpenPottery Pages project**
+- Do not attach `tool.openpottery.com` to the OpenPottery project
+
 ## Optional: Cloudflare Pages (Direct Upload / CLI)
 
 If you do not want Git-triggered builds:
