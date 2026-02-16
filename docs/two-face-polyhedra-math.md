@@ -166,3 +166,46 @@ Phase 2 (experimental):
 - Gate behind explicit "experimental" toggle.
 
 This keeps exports deterministic while enabling mathematically grounded exploration.
+
+## 8. Productization / User Interface Concepts
+
+To make these mathematical possibilities accessible to non-technical users, we can abstract the constraints into a guided "builder" experience.
+
+### Concept 1: The Constrained Explorer (Linear/Slider Flow)
+
+Instead of asking users for `vertex coefficients` or `angle deficits`, we present a simplified decision tree that only exposes mathematically valid options.
+
+1.  **Primary Slider (`n`):**
+    *   "How many sides does your main shape have?"
+    *   User picks `n` (e.g., 3=Triangle, 4=Square, 5=Pentagon, 6=Hexagon).
+
+2.  **Configuration Selector ("Version"):**
+    *   Because `n` alone doesn't define the shape (e.g., `n=6` could be a Hex Prism, Truncated Octahedron, or Truncated Icosahedron depending on the second face and vertex layout), we present valid "versions" as distinct, clickable options.
+    *   The UI calculates all valid integer solutions for `(p=n, q=?, a=?, b=?)` that satisfy the Euler and Angle Deficit constraints.
+    *   **Example for `n=4` (Square):**
+        *   *Version 1:* Cube (All squares).
+        *   *Version 2:* Square Pyramid (Square + Triangles).
+        *   *Version 3:* Square Prism (Square + Squares).
+    *   **Example for `n=6` (Hexagon):**
+        *   *Version 1:* Hexagonal Prism (Hexagon + Squares).
+        *   *Version 2:* Truncated Octahedron (Hexagon + Squares, different arrangement).
+        *   *Version 3:* Truncated Icosahedron (Hexagon + Pentagons).
+
+This approach "gamifies" the math: users explore what "Version 5" of a Heptagon looks like, without needing to know *why* it exists mathematically.
+
+### Concept 2: The Solution Space Map (Visual Plot)
+
+For a more exploratory and less linear experience, we can visualize the "solution space" as a scatter plot.
+
+*   **Visual Representation:** A 2D grid where dots represent valid 3D shapes.
+*   **Axes:**
+    *   X-Axis: Number of sides of Face A (`n`).
+    *   Y-Axis: Number of sides of Face B (`m`).
+*   **Interaction:**
+    *   Users see a grid of dots. A dot at `(6, 4)` means "There is a valid shape using Hexagons and Squares."
+    *   If multiple shapes exist for `(6, 4)` (like the Prism vs. Truncated Octahedron), the dot could be larger, different colored, or expand into a cluster of sub-choices when clicked.
+*   **Pros:** Encourages "hunting" for rare shapes. Visually demonstrates that some combinations (e.g., Heptagons + Octagons) might be impossible (empty space on the plot).
+*   **Cons:** Harder to interpret "versions" (same face types, different topology) without 3D clustering or drill-down menus.
+
+### Recommendation
+Start with **Concept 1** as the primary creation flow for its clarity. Use **Concept 2** as an advanced "Gallery View" for power users to find specific combinations quickly.

@@ -3,7 +3,7 @@ import {
   buildShapeDebugModel,
   type WireframeCamera
 } from '@torrify/geometry-engine';
-import type { ShapeDefinition } from '@torrify/shared-types';
+import type { Point2, ShapeDefinition, Units } from '@torrify/shared-types';
 import { clampInt } from './form-state';
 
 export interface PreviewShapeDefinition {
@@ -47,6 +47,13 @@ export interface PreviewPath {
 export interface TemplatePreview {
   width: number;
   height: number;
+  units: Units;
+  bounds: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  };
   paths: PreviewPath[];
 }
 
@@ -99,7 +106,30 @@ function emptyTemplate(): TemplatePreview {
   return {
     width: 460,
     height: 280,
+    units: 'mm',
+    bounds: {
+      minX: 0,
+      minY: 0,
+      maxX: 460,
+      maxY: 280
+    },
     paths: []
+  };
+}
+
+function buildTemplateBounds(paths: Array<{ points: Point2[] }>): TemplatePreview['bounds'] {
+  const allPoints = paths.flatMap((path) => path.points);
+  if (allPoints.length === 0) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  }
+
+  const xs = allPoints.map((point) => point.x);
+  const ys = allPoints.map((point) => point.y);
+  return {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys)
   };
 }
 
@@ -164,6 +194,8 @@ export function buildTemplatePreview(def: PreviewShapeDefinition): TemplatePrevi
     return {
       width: geometry.template.width,
       height: geometry.template.height,
+      units: geometry.template.units,
+      bounds: buildTemplateBounds(geometry.template.paths),
       paths: geometry.template.paths.map((path) => ({
         layer: path.layer,
         d: toPath(path.points, path.closed)

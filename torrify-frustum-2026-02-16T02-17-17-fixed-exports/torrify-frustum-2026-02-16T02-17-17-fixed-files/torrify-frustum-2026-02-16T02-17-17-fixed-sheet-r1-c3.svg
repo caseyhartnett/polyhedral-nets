@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="215.900mm" height="279.400mm" viewBox="0 0 215.900 279.400">
+  <g id="cut">
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 54.6461 271.4000 L 8.0000 247.2984" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 8.0000 167.6969 L 73.7400 133.7296" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 73.7400 133.7296 L 43.7400 81.7680" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 43.7400 81.7680 L 8.0000 104.6907" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 54.6461 271.4000 L 8.0000 271.4000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 8.0000 271.4000 L 8.0000 247.2984" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 8.0000 167.6969 L 8.0000 104.6907" />
+  </g>
+  <g id="score">
+    
+  </g>
+  <g id="guide">
+    
+  </g>
+</svg>

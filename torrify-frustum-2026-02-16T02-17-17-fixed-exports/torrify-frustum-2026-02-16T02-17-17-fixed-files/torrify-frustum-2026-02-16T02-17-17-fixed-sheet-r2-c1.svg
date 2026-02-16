@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="215.900mm" height="279.400mm" viewBox="0 0 215.900 279.400">
+  <g id="cut">
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 117.0939 8.0000 L 98.0000 17.8657" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 128.0000 69.8272 L 207.9000 18.5816" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 98.0000 17.8657 L 38.0000 17.8657" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 38.0000 17.8657 L 8.0000 69.8272" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 8.0000 69.8272 L 38.0000 121.7887" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 38.0000 121.7887 L 98.0000 121.7887" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 98.0000 121.7887 L 128.0000 69.8272" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 117.0939 8.0000 L 207.9000 8.0000" />
+    <path class="cut" style="fill:none;stroke:#111;stroke-width:0.2" d="M 207.9000 8.0000 L 207.9000 18.5816" />
+  </g>
+  <g id="score">
+    <path class="score" style="fill:none;stroke:#0a66c2;stroke-width:0.15;stroke-dasharray:1 1" d="M 98.0000 17.8657 L 128.0000 69.8272" />
+  </g>
+  <g id="guide">
+    
+  </g>
+</svg>

@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@torrify/geometry-engine": "0.1.0",
-    "@torrify/shared-types": "0.1.0"
+    "@torrify/shared-types": "0.1.0",
+    "jszip": "^3.10.1"
   }
 }

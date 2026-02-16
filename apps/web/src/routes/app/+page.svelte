@@ -1,12 +1,21 @@
 <script lang="ts">
+  import JSZip from 'jszip';
   import { onDestroy, onMount } from 'svelte';
   import { buildTemplatePreview, buildSolidPreview } from '$lib/preview';
   import {
+    MATERIAL_SIZE_PRESET_OPTIONS,
     availableArtifactFormats,
     artifactFileName,
     artifactMimeType,
+    filterTemplateLayers,
     generateExportArtifacts
   } from '$lib/exports';
+  import type {
+    ExportSheetLayoutOptions,
+    GeneratedSvgPage,
+    MaterialSizePreset
+  } from '$lib/exports';
+  import { renderTemplateSvg } from '@torrify/geometry-engine';
   import { clampInt, toggleExportFormat, toggleSvgLayerSelection } from '$lib/form-state';
   import type {
     CanonicalGeometry,
@@ -14,7 +23,8 @@
     PolyhedronDefinition,
     PolyhedronPreset,
     ShapeDefinition,
-    SvgLayer
+    SvgLayer,
+    Units
   } from '@torrify/shared-types';
 
   type ShapeBuilderMode = 'legacy' | 'polyhedron';
@@ -52,6 +62,23 @@
     title: string;
     detail: string;
   }
+
+  interface DownloadableOutputFile {
+    fileName: string;
+    mimeType: string;
+    content: string;
+  }
+
+  interface SheetGuideOverlay {
+    cols: number;
+    rows: number;
+    vertical: number[];
+    horizontal: number[];
+  }
+
+  type GeneratedSvgPreviewMode = 'combined' | 'sheets';
+
+  const MM_PER_INCH = 25.4;
 
   const ONBOARDING_SEEN_KEY = 'pgw_onboarding_seen';
 
@@ -294,11 +321,21 @@
 
   let exportFormats: ExportFormat[] = ['svg', 'pdf'];
   let svgLayers: SvgLayer[] = ['cut', 'score', 'guide'];
+  let materialSizePreset: MaterialSizePreset = 'none';
+  let customMaterialWidth = 12;
+  let customMaterialHeight = 24;
+  let customMaterialUnits: Units = 'in';
 
   let generating = false;
   let error = '';
   let generatedGeometry: CanonicalGeometry | null = null;
   let generatedArtifacts: Partial<Record<ExportFormat, string>> = {};
+  let generatedSvgPages: GeneratedSvgPage[] = [];
+  let generatedSvgPreviewSheetIndex = 0;
+  let generatedSvgPreviewMode: GeneratedSvgPreviewMode = 'combined';
+  let generatedSvgLayerSnapshot: SvgLayer[] = ['cut', 'score', 'guide'];
+  let generatedSheetLayoutSnapshot: ExportSheetLayoutOptions | undefined;
+  let generatedAtDate: Date | null = null;
   let generatedAt = '';
   let svgPreviewUrl = '';
 
@@ -359,6 +396,11 @@
   $: effectiveBottomSegments = resolvedShapeDefinition.bottomSegments;
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
   $: generatedFormats = availableArtifactFormats(generatedArtifacts);
+  $: totalGeneratedDownloadFileCount = countGeneratedDownloadFiles();
+  $: selectedMaterialPresetOption =
+    MATERIAL_SIZE_PRESET_OPTIONS.find((option) => option.value === materialSizePreset) ??
+    MATERIAL_SIZE_PRESET_OPTIONS[0];
+  $: previewSheetGuides = buildPreviewSheetGuides();
   $: filteredHelpItems = HELP_ITEMS.filter((item) => {
     const term = helpQuery.trim().toLowerCase();
     if (!term) {
@@ -444,6 +486,224 @@
       faceMode: deriveFaceMode(preset, ringSides),
       ringSides: isFamilyPreset(preset) ? ringSides : undefined
     };
+  }
+
+  function convertUnits(value: number, from: Units, to: Units): number {
+    if (from === to) {
+      return value;
+    }
+
+    if (from === 'in' && to === 'mm') {
+      return value * MM_PER_INCH;
+    }
+
+    return value / MM_PER_INCH;
+  }
+
+  function resolvePreviewSheetSize(units: Units): { width: number; height: number } | undefined {
+    return resolveSheetSizeForLayout(
+      {
+        materialSizePreset,
+        customSize:
+          materialSizePreset === 'custom'
+            ? {
+                width: customMaterialWidth,
+                height: customMaterialHeight,
+                units: customMaterialUnits
+              }
+            : undefined
+      },
+      units
+    );
+  }
+
+  function resolveSheetSizeForLayout(
+    layout: Pick<ExportSheetLayoutOptions, 'materialSizePreset' | 'customSize'> | undefined,
+    units: Units
+  ): { width: number; height: number } | undefined {
+    if (!layout || layout.materialSizePreset === 'none') {
+      return undefined;
+    }
+
+    if (layout.materialSizePreset === 'custom') {
+      const custom = layout.customSize;
+      if (!custom || !(custom.width > 0) || !(custom.height > 0)) {
+        return undefined;
+      }
+
+      return {
+        width: convertUnits(custom.width, custom.units, units),
+        height: convertUnits(custom.height, custom.units, units)
+      };
+    }
+
+    const preset = MATERIAL_SIZE_PRESET_OPTIONS.find(
+      (option) => option.value === layout.materialSizePreset
+    );
+    if (!preset || !preset.width || !preset.height || !preset.units) {
+      return undefined;
+    }
+
+    return {
+      width: convertUnits(preset.width, preset.units, units),
+      height: convertUnits(preset.height, preset.units, units)
+    };
+  }
+
+  function buildPreviewSheetGuides(): SheetGuideOverlay | undefined {
+    const sheetSize = resolvePreviewSheetSize(liveTemplate.units);
+    if (!sheetSize) {
+      return undefined;
+    }
+
+    const margin = Math.min(
+      convertUnits(8, 'mm', liveTemplate.units),
+      sheetSize.width * 0.2,
+      sheetSize.height * 0.2
+    );
+    const usableWidth = sheetSize.width - margin * 2;
+    const usableHeight = sheetSize.height - margin * 2;
+    if (usableWidth <= 0 || usableHeight <= 0) {
+      return undefined;
+    }
+
+    const contentWidth = liveTemplate.bounds.maxX - liveTemplate.bounds.minX;
+    const contentHeight = liveTemplate.bounds.maxY - liveTemplate.bounds.minY;
+    const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
+    const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+
+    const vertical: number[] = [];
+    for (let col = 1; col < cols; col += 1) {
+      vertical.push(Math.min(liveTemplate.bounds.maxX, liveTemplate.bounds.minX + col * usableWidth));
+    }
+
+    const horizontal: number[] = [];
+    for (let row = 1; row < rows; row += 1) {
+      horizontal.push(Math.min(liveTemplate.bounds.maxY, liveTemplate.bounds.minY + row * usableHeight));
+    }
+
+    return {
+      cols,
+      rows,
+      vertical,
+      horizontal
+    };
+  }
+
+  function buildSheetGuidesForPaths(
+    paths: Array<{ points: Array<{ x: number; y: number }> }>,
+    units: Units,
+    layout: Pick<ExportSheetLayoutOptions, 'materialSizePreset' | 'customSize'> | undefined
+  ): SheetGuideOverlay | undefined {
+    const sheetSize = resolveSheetSizeForLayout(layout, units);
+    if (!sheetSize) {
+      return undefined;
+    }
+
+    const allPoints = paths.flatMap((path) => path.points);
+    if (allPoints.length === 0) {
+      return undefined;
+    }
+
+    const xs = allPoints.map((point) => point.x);
+    const ys = allPoints.map((point) => point.y);
+    const bounds = {
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys)
+    };
+
+    const margin = Math.min(convertUnits(8, 'mm', units), sheetSize.width * 0.2, sheetSize.height * 0.2);
+    const usableWidth = sheetSize.width - margin * 2;
+    const usableHeight = sheetSize.height - margin * 2;
+    if (usableWidth <= 0 || usableHeight <= 0) {
+      return undefined;
+    }
+
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
+    const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+
+    const vertical: number[] = [];
+    for (let col = 1; col < cols; col += 1) {
+      vertical.push(Math.min(bounds.maxX, bounds.minX + col * usableWidth));
+    }
+
+    const horizontal: number[] = [];
+    for (let row = 1; row < rows; row += 1) {
+      horizontal.push(Math.min(bounds.maxY, bounds.minY + row * usableHeight));
+    }
+
+    return { cols, rows, vertical, horizontal };
+  }
+
+  function buildCombinedGeneratedSvgPreview(): string | undefined {
+    if (!generatedGeometry) {
+      return undefined;
+    }
+
+    const layeredGeometry = filterTemplateLayers(
+      generatedGeometry,
+      generatedSvgLayerSnapshot.length > 0 ? generatedSvgLayerSnapshot : ['cut', 'score', 'guide']
+    );
+    const baseSvg = renderTemplateSvg(layeredGeometry);
+
+    const guides = buildSheetGuidesForPaths(
+      layeredGeometry.template.paths,
+      layeredGeometry.template.units,
+      generatedSheetLayoutSnapshot
+    );
+    if (!guides || (guides.vertical.length === 0 && guides.horizontal.length === 0)) {
+      return baseSvg;
+    }
+
+    const allPoints = layeredGeometry.template.paths.flatMap((path) => path.points);
+    const xs = allPoints.map((point) => point.x);
+    const ys = allPoints.map((point) => point.y);
+    const bounds = {
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys)
+    };
+
+    const lineEls = [
+      ...guides.vertical.map(
+        (x) =>
+          `<line x1="${x.toFixed(3)}" y1="${bounds.minY.toFixed(3)}" x2="${x.toFixed(3)}" y2="${bounds.maxY.toFixed(3)}" />`
+      ),
+      ...guides.horizontal.map(
+        (y) =>
+          `<line x1="${bounds.minX.toFixed(3)}" y1="${y.toFixed(3)}" x2="${bounds.maxX.toFixed(3)}" y2="${y.toFixed(3)}" />`
+      )
+    ].join('\n    ');
+
+    const guideGroup = `  <g id="split-guides-preview" style="fill:none;stroke:#ef4444;stroke-width:0.9;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;pointer-events:none;opacity:0.92;">\n    ${lineEls}\n  </g>\n`;
+
+    return baseSvg.replace('</svg>', `${guideGroup}</svg>`);
+  }
+
+  function refreshGeneratedSvgPreview(): void {
+    if (generatedSvgPages.length > 1 && generatedSvgPreviewMode === 'combined') {
+      updateSvgPreview(buildCombinedGeneratedSvgPreview());
+      return;
+    }
+
+    if (generatedSvgPages.length > 0) {
+      const clamped = Math.max(0, Math.min(generatedSvgPages.length - 1, generatedSvgPreviewSheetIndex));
+      generatedSvgPreviewSheetIndex = clamped;
+      updateSvgPreview(generatedSvgPages[clamped]?.content);
+      return;
+    }
+
+    updateSvgPreview(generatedArtifacts.svg);
+  }
+
+  function setGeneratedSvgPreviewMode(mode: GeneratedSvgPreviewMode): void {
+    generatedSvgPreviewMode = mode;
+    refreshGeneratedSvgPreview();
   }
 
   function syncPolyhedronUiState(polyhedron?: Partial<PolyhedronDefinition>): void {
@@ -538,32 +798,172 @@
       return;
     }
 
-    const blob = new Blob([svg], { type: artifactMimeType('svg') });
+    const previewSvg = makeSvgPreviewFriendly(svg);
+    const blob = new Blob([previewSvg], { type: artifactMimeType('svg') });
     svgPreviewUrl = URL.createObjectURL(blob);
   }
 
-  function downloadArtifact(format: ExportFormat): void {
-    const content = generatedArtifacts[format];
-    if (!content || !generatedGeometry) {
-      error = `Generate ${format.toUpperCase()} first.`;
-      return;
+  function makeSvgPreviewFriendly(svg: string): string {
+    if (svg.includes('id="preview-display-style"')) {
+      return svg;
     }
 
-    const blob = new Blob([content], { type: artifactMimeType(format) });
+    const overlay = [
+      '  <rect id="preview-bg" x="0" y="0" width="100%" height="100%" fill="#ffffff" />',
+      '  <style id="preview-display-style"><![CDATA[',
+      '    path.cut {',
+      '      stroke:#0f172a !important;',
+      '      stroke-width:1.35 !important;',
+      '      vector-effect:non-scaling-stroke !important;',
+      '    }',
+      '    path.score {',
+      '      stroke:#0284c7 !important;',
+      '      stroke-width:1.15 !important;',
+      '      stroke-dasharray:5 4 !important;',
+      '      vector-effect:non-scaling-stroke !important;',
+      '    }',
+      '    path.guide {',
+      '      stroke:#f97316 !important;',
+      '      stroke-width:1.0 !important;',
+      '      stroke-dasharray:3 3 !important;',
+      '      vector-effect:non-scaling-stroke !important;',
+      '      opacity:0.9 !important;',
+      '    }',
+      '    #split-guides-preview line {',
+      '      stroke:#dc2626 !important;',
+      '      stroke-width:1.4 !important;',
+      '      stroke-dasharray:8 5 !important;',
+      '      vector-effect:non-scaling-stroke !important;',
+      '      opacity:0.95 !important;',
+      '    }',
+      '  ]]></style>'
+    ].join('\n');
+
+    return svg.replace(/(<svg[^>]*>)/, `$1\n${overlay}`);
+  }
+
+  function previewGeneratedSvgSheet(index: number): void {
+    generatedSvgPreviewMode = 'sheets';
+    generatedSvgPreviewSheetIndex = Math.max(0, Math.min(generatedSvgPages.length - 1, index));
+    refreshGeneratedSvgPreview();
+  }
+
+  function downloadNamedContent(content: string, mimeType: string, fileName: string): void {
+    const blob = new Blob([content], { type: mimeType });
+    downloadBlob(blob, fileName);
+  }
+
+  function downloadBlob(blob: Blob, fileName: string): void {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = artifactFileName(format, generatedGeometry.kind);
+    link.download = fileName;
     document.body.append(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
   }
 
-  function downloadAllGenerated(): void {
-    for (const format of generatedFormats) {
-      downloadArtifact(format);
+  function countGeneratedDownloadFiles(): number {
+    let count = 0;
+    if (generatedArtifacts.svg) {
+      count += generatedSvgPages.length > 0 ? generatedSvgPages.length : 1;
     }
+    if (generatedArtifacts.pdf) count += 1;
+    if (generatedArtifacts.stl) count += 1;
+    return count;
+  }
+
+  function collectGeneratedOutputFiles(): DownloadableOutputFile[] {
+    if (!generatedGeometry) {
+      return [];
+    }
+
+    const when = generatedAtDate ?? new Date();
+    const files: DownloadableOutputFile[] = [];
+
+    if (generatedArtifacts.svg) {
+      if (generatedSvgPages.length > 0) {
+        for (const page of generatedSvgPages) {
+          files.push({
+            fileName: artifactFileName('svg', generatedGeometry.kind, when, page.fileNameSuffix),
+            mimeType: artifactMimeType('svg'),
+            content: page.content
+          });
+        }
+      } else {
+        files.push({
+          fileName: artifactFileName('svg', generatedGeometry.kind, when),
+          mimeType: artifactMimeType('svg'),
+          content: generatedArtifacts.svg
+        });
+      }
+    }
+
+    if (generatedArtifacts.pdf) {
+      files.push({
+        fileName: artifactFileName('pdf', generatedGeometry.kind, when),
+        mimeType: artifactMimeType('pdf'),
+        content: generatedArtifacts.pdf
+      });
+    }
+
+    if (generatedArtifacts.stl) {
+      files.push({
+        fileName: artifactFileName('stl', generatedGeometry.kind, when),
+        mimeType: artifactMimeType('stl'),
+        content: generatedArtifacts.stl
+      });
+    }
+
+    return files;
+  }
+
+  async function downloadOutputAsZip(files: DownloadableOutputFile[]): Promise<void> {
+    if (!generatedGeometry) {
+      error = 'Generate files first.';
+      return;
+    }
+
+    const when = generatedAtDate ?? new Date();
+    const folderName = artifactFileName('svg', generatedGeometry.kind, when, 'files').replace(/\.svg$/, '');
+    const zipFileName = artifactFileName('svg', generatedGeometry.kind, when, 'exports').replace(
+      /\.svg$/,
+      '.zip'
+    );
+
+    const zip = new JSZip();
+    const folder = zip.folder(folderName);
+    for (const file of files) {
+      if (folder) {
+        folder.file(file.fileName, file.content);
+      } else {
+        zip.file(file.fileName, file.content);
+      }
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(zipBlob, zipFileName);
+  }
+
+  async function downloadArtifact(format: ExportFormat): Promise<void> {
+    const files = collectGeneratedOutputFiles();
+    if (files.length === 0) {
+      error = `Generate ${format.toUpperCase()} first.`;
+      return;
+    }
+
+    if (files.length > 1) {
+      await downloadOutputAsZip(files);
+      return;
+    }
+
+    const only = files[0];
+    downloadNamedContent(only.content, only.mimeType, only.fileName);
+  }
+
+  async function downloadAllGenerated(): Promise<void> {
+    await downloadArtifact('svg');
   }
 
   function generateExports(): void {
@@ -572,19 +972,42 @@
     generating = true;
 
     try {
+      const sheetLayoutOptions: ExportSheetLayoutOptions = {
+        materialSizePreset,
+        customSize:
+          materialSizePreset === 'custom'
+            ? {
+                width: Math.max(0, Number(customMaterialWidth) || 0),
+                height: Math.max(0, Number(customMaterialHeight) || 0),
+                units: customMaterialUnits
+              }
+            : undefined
+      };
+
       const generated = generateExportArtifacts({
         shapeDefinition: resolvedShapeDefinition,
         exportFormats,
-        svgLayers
+        svgLayers,
+        sheetLayout: sheetLayoutOptions
       });
 
       generatedGeometry = generated.geometry;
       generatedArtifacts = generated.artifacts;
-      generatedAt = new Date().toLocaleString();
-      updateSvgPreview(generated.artifacts.svg);
+      generatedSvgPages = generated.svgPages;
+      generatedSvgPreviewSheetIndex = 0;
+      generatedSvgPreviewMode = generated.svgPages.length > 1 ? 'combined' : 'sheets';
+      generatedSvgLayerSnapshot = [...svgLayers];
+      generatedSheetLayoutSnapshot = sheetLayoutOptions;
+      generatedAtDate = new Date();
+      generatedAt = generatedAtDate.toLocaleString();
+      refreshGeneratedSvgPreview();
 
       const formats = availableArtifactFormats(generated.artifacts).map((format) => format.toUpperCase());
-      exportSuccess = `Files ready: ${formats.join(', ')}. Start by downloading SVG for print testing.`;
+      const svgSplitNote =
+        generated.svgPages.length > 1
+          ? ` SVG split into ${generated.svgPages.length} sheets for ${selectedMaterialPresetOption.label}.`
+          : '';
+      exportSuccess = `Files ready: ${formats.join(', ')}.${svgSplitNote} Start by downloading SVG for print testing.`;
 
       if (guidedSetupActive) {
         guidedSetupActive = false;
@@ -595,6 +1018,12 @@
       error = err instanceof Error ? err.message : 'Failed to generate exports';
       generatedGeometry = null;
       generatedArtifacts = {};
+      generatedSvgPages = [];
+      generatedSvgPreviewSheetIndex = 0;
+      generatedSvgPreviewMode = 'combined';
+      generatedSvgLayerSnapshot = ['cut', 'score', 'guide'];
+      generatedSheetLayoutSnapshot = undefined;
+      generatedAtDate = null;
       generatedAt = '';
       updateSvgPreview(undefined);
     } finally {
@@ -676,6 +1105,13 @@
     selectedCatalogKey = 'cube';
     selectedFamilyPreset = 'regularPrism';
     useSplitEdges = false;
+    materialSizePreset = 'none';
+    customMaterialWidth = 12;
+    customMaterialHeight = 24;
+    customMaterialUnits = 'in';
+    generatedSvgPreviewMode = 'combined';
+    generatedSvgLayerSnapshot = ['cut', 'score', 'guide'];
+    generatedSheetLayoutSnapshot = undefined;
     applyRoleDefaults('hobbyist');
     error = '';
     exportSuccess = 'Safe defaults restored. Generate to see updated files.';
@@ -1093,6 +1529,55 @@
     </div>
 
     <div class="config-group">
+      <div class="config-title">Material Size and SVG Splitting</div>
+      <div class="grid material-grid">
+        <label>
+          <span class="field-title"
+            >Target Material
+            <span class="tip" title="Split SVG pages to match printer paper or cutting mat limits.">?</span></span
+          >
+          <select bind:value={materialSizePreset}>
+            {#each MATERIAL_SIZE_PRESET_OPTIONS as option}
+              <option value={option.value}>{option.label}</option>
+            {/each}
+          </select>
+        </label>
+
+        {#if materialSizePreset === 'custom'}
+          <label>
+            <span class="field-title">Custom Width</span>
+            <input type="number" min="0.1" step="0.1" bind:value={customMaterialWidth} />
+          </label>
+          <label>
+            <span class="field-title">Custom Height</span>
+            <input type="number" min="0.1" step="0.1" bind:value={customMaterialHeight} />
+          </label>
+          <label>
+            <span class="field-title">Custom Units</span>
+            <select bind:value={customMaterialUnits}>
+              <option value="mm">mm</option>
+              <option value="in">in</option>
+            </select>
+          </label>
+        {/if}
+      </div>
+
+      {#if materialSizePreset !== 'none'}
+        {#if previewSheetGuides}
+          <p class="muted">
+            Live split estimate: {previewSheetGuides.cols}x{previewSheetGuides.rows} (
+            {previewSheetGuides.cols * previewSheetGuides.rows} sheets).
+          </p>
+        {/if}
+        <p class="muted">
+          SVG export is automatically split into one or more sheets/mats that fit your selected size.
+        </p>
+      {:else}
+        <p class="muted">No size constraint selected. SVG export remains one raw file.</p>
+      {/if}
+    </div>
+
+    <div class="config-group">
       <div class="config-title">Export Formats</div>
       <div class="formats">
         <label
@@ -1154,7 +1639,11 @@
       <div class="success-panel">
         <p>{exportSuccess}</p>
         <div class="actions-row">
-          <button type="button" class="small" on:click={() => downloadArtifact('svg')}>Download SVG</button>
+          <button type="button" class="small" on:click={() => downloadArtifact('svg')}>
+            {totalGeneratedDownloadFileCount > 1
+              ? `Download ZIP (${totalGeneratedDownloadFileCount} files)`
+              : 'Download File'}
+          </button>
           <button type="button" class="small" on:click={loadSampleProject}>Try Another Sample</button>
           <button type="button" class="small" on:click={startTour}>Take Quick Tour</button>
         </div>
@@ -1168,14 +1657,25 @@
           Kind: {generatedGeometry.kind} - Faces: {generatedGeometry.metrics.faceCount} - Surface Area:
           {generatedGeometry.metrics.surfaceArea.toFixed(2)}
         </div>
+        {#if generatedSvgPages.length > 0}
+          <div class="muted">
+            SVG sheets: {generatedSvgPages.length}
+            {#if materialSizePreset !== 'none'}
+              ({selectedMaterialPresetOption.label})
+            {/if}
+          </div>
+        {/if}
         <div class="actions-row">
-          {#each generatedFormats as format}
-            <button class="small" on:click={() => downloadArtifact(format)}>
-              Download {format.toUpperCase()}
+          {#if totalGeneratedDownloadFileCount > 1}
+            <button class="small" on:click={downloadAllGenerated}>
+              Download ZIP ({totalGeneratedDownloadFileCount} files)
             </button>
-          {/each}
-          {#if generatedFormats.length > 1}
-            <button class="small" on:click={downloadAllGenerated}>Download All</button>
+          {:else}
+            {#each generatedFormats as format}
+              <button class="small" on:click={() => downloadArtifact(format)}>
+                Download {format.toUpperCase()}
+              </button>
+            {/each}
           {/if}
         </div>
       </div>
@@ -1258,9 +1758,36 @@
             {#each liveTemplate.paths as path}
               <path d={path.d} class={`layer-${path.layer}`} />
             {/each}
+            {#if previewSheetGuides}
+              <g class="sheet-guides" aria-hidden="true">
+                {#each previewSheetGuides.vertical as x}
+                  <line
+                    class="sheet-guide-line"
+                    x1={x}
+                    y1={liveTemplate.bounds.minY}
+                    x2={x}
+                    y2={liveTemplate.bounds.maxY}
+                  />
+                {/each}
+                {#each previewSheetGuides.horizontal as y}
+                  <line
+                    class="sheet-guide-line"
+                    x1={liveTemplate.bounds.minX}
+                    y1={y}
+                    x2={liveTemplate.bounds.maxX}
+                    y2={y}
+                  />
+                {/each}
+              </g>
+            {/if}
           </g>
         </svg>
-        <div class="muted">Drag to pan. Mouse wheel to zoom.</div>
+        <div class="muted">
+          Drag to pan. Mouse wheel to zoom.
+          {#if previewSheetGuides}
+            Sheet preview: {previewSheetGuides.cols}x{previewSheetGuides.rows} ({selectedMaterialPresetOption.label}).
+          {/if}
+        </div>
       </div>
 
       <div class="preview-pane">
@@ -1293,6 +1820,53 @@
     </div>
 
     <h2>Generated SVG Preview</h2>
+    {#if generatedSvgPages.length > 1}
+      <div class="actions-row">
+        <button
+          type="button"
+          class="small"
+          class:tab-active={generatedSvgPreviewMode === 'combined'}
+          on:click={() => setGeneratedSvgPreviewMode('combined')}
+        >
+          Combined Split Map
+        </button>
+        <button
+          type="button"
+          class="small"
+          class:tab-active={generatedSvgPreviewMode === 'sheets'}
+          on:click={() => setGeneratedSvgPreviewMode('sheets')}
+        >
+          Sheet by Sheet
+        </button>
+      </div>
+
+      {#if generatedSvgPreviewMode === 'sheets'}
+        <p class="muted">
+          Showing sheet {generatedSvgPreviewSheetIndex + 1} of {generatedSvgPages.length}. Select another sheet:
+        </p>
+        <div class="actions-row">
+          {#each generatedSvgPages as page, idx}
+            <button
+              type="button"
+              class="small"
+              class:tab-active={generatedSvgPreviewSheetIndex === idx}
+              on:click={() => previewGeneratedSvgSheet(idx)}
+            >
+              Sheet {page.row},{page.column}
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <p class="muted">
+          Combined map: one full template with red split lines and no split tabs, for alignment/debug review.
+        </p>
+      {/if}
+    {:else if previewSheetGuides && materialSizePreset !== 'none'}
+      <p class="muted">
+        Live split estimate: {previewSheetGuides.cols}x{previewSheetGuides.rows} (
+        {previewSheetGuides.cols * previewSheetGuides.rows} sheets). Generate files to preview split sheets here.
+      </p>
+    {/if}
     {#if svgPreviewUrl}
       <object data={svgPreviewUrl} type="image/svg+xml" aria-label="Generated SVG template"></object>
     {:else}
@@ -1842,7 +2416,7 @@
     border: 1px solid var(--card-border);
     border-radius: 10px;
     margin-top: 0.5rem;
-    background: #1e1e1e;
+    background: #ffffff;
   }
 
   .help-panel {
@@ -1979,6 +2553,16 @@
     fill: none;
     stroke: #2563eb;
     stroke-width: 1.1;
+  }
+
+  .sheet-guide-line {
+    stroke: #ef4444;
+    stroke-width: 1.35;
+    stroke-dasharray: 6 4;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+    opacity: 0.95;
+    filter: drop-shadow(0 0 1.1px rgba(239, 68, 68, 0.45));
   }
 
   .solid-face {
