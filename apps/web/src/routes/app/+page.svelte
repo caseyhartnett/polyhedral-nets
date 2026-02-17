@@ -32,7 +32,6 @@
   type PolyhedronInputMode = 'catalog' | 'family';
   type PolyhedronFamilyPreset = 'regularPrism' | 'regularAntiprism' | 'regularBipyramid';
   type MaterialPreset = 'paper' | 'slabClay' | 'board';
-  type QuickStartRole = 'hobbyist' | 'teacher' | 'studio';
   type TourTarget = 'builder' | 'fabrication' | 'preview' | 'help';
 
   interface PolyhedronCatalogOption {
@@ -171,12 +170,6 @@
       allowance: 7,
       seamMode: 'overlap'
     }
-  };
-
-  const ROLE_CONTENT: Record<QuickStartRole, { label: string; description: string }> = {
-    hobbyist: { label: 'Hobbyist', description: 'Simple defaults and print-ready outputs.' },
-    teacher: { label: 'Teacher', description: 'Fast setup for demonstrations and classes.' },
-    studio: { label: 'Studio', description: 'Include 3D outputs for planning and handoff.' }
   };
 
   const POLYHEDRON_ALL_PRESETS: PolyhedronPreset[] = [
@@ -353,7 +346,6 @@
   let onboardingStep = 1;
   let onboardingShapeFamily: ShapeBuilderMode = 'legacy';
   let onboardingMaterialPreset: MaterialPreset = 'slabClay';
-  let quickStartRole: QuickStartRole = 'hobbyist';
 
   let tourMode = false;
   let tourStepIndex = 0;
@@ -400,7 +392,6 @@
   ).toFixed(3)})`;
   $: effectiveBottomSegments = resolvedShapeDefinition.bottomSegments;
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
-  $: generatedFormats = availableArtifactFormats(generatedArtifacts);
   $: totalGeneratedDownloadFileCount = countGeneratedDownloadFiles();
   $: selectedMaterialPresetOption =
     MATERIAL_SIZE_PRESET_OPTIONS.find((option) => option.value === materialSizePreset) ??
@@ -893,11 +884,6 @@
     refreshGeneratedSvgPreview();
   }
 
-  function downloadNamedContent(content: string, mimeType: string, fileName: string): void {
-    const blob = new Blob([content], { type: mimeType });
-    downloadBlob(blob, fileName);
-  }
-
   function downloadBlob(blob: Blob, fileName: string): void {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -991,24 +977,14 @@
     downloadBlob(zipBlob, zipFileName);
   }
 
-  async function downloadArtifact(format: ExportFormat): Promise<void> {
+  async function downloadSelectedAsZip(): Promise<void> {
     const files = collectGeneratedOutputFiles();
     if (files.length === 0) {
-      error = `Generate ${format.toUpperCase()} first.`;
+      error = 'Generate files first.';
       return;
     }
 
-    if (files.length > 1) {
-      await downloadOutputAsZip(files);
-      return;
-    }
-
-    const only = files[0];
-    downloadNamedContent(only.content, only.mimeType, only.fileName);
-  }
-
-  async function downloadAllGenerated(): Promise<void> {
-    await downloadArtifact('svg');
+    await downloadOutputAsZip(files);
   }
 
   function generateExports(): void {
@@ -1090,21 +1066,7 @@
     }
   }
 
-  function applyRoleDefaults(role: QuickStartRole): void {
-    quickStartRole = role;
-
-    if (role === 'teacher') {
-      exportFormats = ['svg'];
-      svgLayers = ['cut', 'score'];
-      return;
-    }
-
-    if (role === 'studio') {
-      exportFormats = ['svg', 'pdf', 'stl'];
-      svgLayers = ['cut', 'score', 'guide'];
-      return;
-    }
-
+  function applyDefaultExportPreset(): void {
     exportFormats = ['svg', 'pdf'];
     svgLayers = ['cut', 'score', 'guide'];
   }
@@ -1151,7 +1113,7 @@
   }
 
   function applyOnboardingDefaultsAndGenerate(): void {
-    applyRoleDefaults(quickStartRole);
+    applyDefaultExportPreset();
     applyFamilyDefaults(onboardingShapeFamily);
     applyMaterialPreset(onboardingMaterialPreset);
     generateExports();
@@ -1171,13 +1133,13 @@
     generatedSvgPreviewMode = 'combined';
     generatedSvgLayerSnapshot = ['cut', 'score', 'guide'];
     generatedSheetLayoutSnapshot = undefined;
-    applyRoleDefaults('hobbyist');
+    applyDefaultExportPreset();
     error = '';
     exportSuccess = 'Safe defaults restored. Generate to see updated files.';
   }
 
   function loadSampleProject(): void {
-    applyRoleDefaults('hobbyist');
+    applyDefaultExportPreset();
     applyFamilyDefaults('legacy');
     applyMaterialPreset('slabClay');
     exportSuccess = 'Sample project loaded. Generate files when ready.';
@@ -1329,16 +1291,6 @@
     </div>
 
     <div class="quick-role-row">
-      {#each Object.entries(ROLE_CONTENT) as [role, content]}
-        <button
-          type="button"
-          class="chip"
-          class:chip-active={quickStartRole === role}
-          on:click={() => applyRoleDefaults(role as QuickStartRole)}
-        >
-          {content.label}
-        </button>
-      {/each}
       <button type="button" class="small" on:click={restoreSafeDefaults}>Reset to Safe Defaults</button>
       <button type="button" class="small" on:click={tourMode ? stopTour : startTour}>
         {tourMode ? 'Stop Tour' : 'Start Tour'}
@@ -1748,13 +1700,9 @@
       <div class="success-panel">
         <p>{exportSuccess}</p>
         <div class="actions-row">
-          <button type="button" class="small" on:click={() => downloadArtifact('svg')}>
-            {totalGeneratedDownloadFileCount > 1
-              ? `Download ZIP (${totalGeneratedDownloadFileCount} files)`
-              : 'Download File'}
+          <button type="button" class="small" on:click={downloadSelectedAsZip}>
+            Download ZIP ({totalGeneratedDownloadFileCount} files)
           </button>
-          <button type="button" class="small" on:click={loadSampleProject}>Try Another Sample</button>
-          <button type="button" class="small" on:click={startTour}>Take Quick Tour</button>
         </div>
       </div>
     {/if}
@@ -1774,19 +1722,6 @@
             {/if}
           </div>
         {/if}
-        <div class="actions-row">
-          {#if totalGeneratedDownloadFileCount > 1}
-            <button class="small" on:click={downloadAllGenerated}>
-              Download ZIP ({totalGeneratedDownloadFileCount} files)
-            </button>
-          {:else}
-            {#each generatedFormats as format}
-              <button class="small" on:click={() => downloadArtifact(format)}>
-                Download {format.toUpperCase()}
-              </button>
-            {/each}
-          {/if}
-        </div>
       </div>
     {:else}
       <div class="coach-card">
@@ -2106,19 +2041,6 @@
             {/each}
           </div>
 
-          <h3>Quick start role</h3>
-          <div class="choice-row">
-            {#each Object.entries(ROLE_CONTENT) as [key, role]}
-              <button
-                type="button"
-                class="chip"
-                class:chip-active={quickStartRole === key}
-                on:click={() => (quickStartRole = key as QuickStartRole)}
-              >
-                {role.label}
-              </button>
-            {/each}
-          </div>
         {/if}
 
         {#if onboardingStep === 3}
@@ -2127,7 +2049,6 @@
             Family: {onboardingShapeFamily === 'legacy' ? 'Dimension Builder' : 'Polyhedron Templates'}
           </p>
           <p class="muted">Material: {MATERIAL_PRESET_CONTENT[onboardingMaterialPreset].label}</p>
-          <p class="muted">Role: {ROLE_CONTENT[quickStartRole].label}</p>
         {/if}
 
         <div class="actions-row">
