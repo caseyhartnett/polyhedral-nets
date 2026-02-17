@@ -257,6 +257,185 @@ test('letter split for oversized cube yields multiple unique svg sheets', () => 
   );
 });
 
+test('optional packing optimization reduces split sheet count for fragmented layouts', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 50,
+      faceMode: 'uniform'
+    }
+  });
+
+  const baseline = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: false
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  });
+
+  const baselineSheetCount = baseline.svgPages.filter((page) => page.kind === 'sheet').length;
+  const optimizedSheetCount = optimized.svgPages.filter((page) => page.kind === 'sheet').length;
+
+  assert.ok(
+    baselineSheetCount >= 2,
+    'baseline split should produce multiple pages before optimization'
+  );
+  assert.ok(optimizedSheetCount >= 1, 'optimized split should produce at least one page');
+  assert.ok(
+    optimizedSheetCount < baselineSheetCount,
+    'optional packing should reduce the final split sheet count for fragmented layouts'
+  );
+});
+
+test('packing optimization remains deterministic across repeated runs', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 70,
+      faceMode: 'uniform'
+    }
+  });
+
+  const options: Parameters<typeof generateExportArtifacts>[0] = {
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  };
+
+  const first = generateExportArtifacts(options);
+  const second = generateExportArtifacts(options);
+
+  const firstSheets = first.svgPages.filter((page) => page.kind === 'sheet');
+  const secondSheets = second.svgPages.filter((page) => page.kind === 'sheet');
+  assert.equal(firstSheets.length, secondSheets.length, 'sheet count should be stable across runs');
+
+  const firstHashes = firstSheets.map((page) => createHash('sha256').update(page.content).digest('hex'));
+  const secondHashes = secondSheets.map((page) => createHash('sha256').update(page.content).digest('hex'));
+  assert.deepEqual(secondHashes, firstHashes, 'packed sheet content should be deterministic');
+
+  assert.ok(
+    firstSheets.every((page) => page.content.includes('width="215.900mm" height="279.400mm"')),
+    'optimized pages should preserve letter material dimensions'
+  );
+});
+
+test('packing optimization can append an assembly guide page', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 70,
+      faceMode: 'uniform'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: true
+    }
+  });
+
+  const sheetPages = optimized.svgPages.filter((page) => page.kind === 'sheet');
+  const assembly = optimized.svgPages.find((page) => page.kind === 'assembly-guide');
+
+  assert.ok(sheetPages.length >= 2, 'expected packed output to include multiple sheet pages');
+  assert.ok(assembly, 'expected an assembly guide page to be generated');
+  assert.equal(assembly?.fileNameSuffix, 'assembly-guide');
+  assert.ok(assembly?.content.includes('id="assembly-grid"'), 'expected assembly grid overlay');
+  assert.ok(
+    /Sheet [0-9]+ - Piece [A-Z]+/.test(assembly?.content ?? ''),
+    'expected assembly guide labels to map pieces back to packed sheet numbers'
+  );
+});
+
+test('assembly guide page is optional in packing optimization', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 70,
+      faceMode: 'uniform'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  });
+
+  assert.equal(
+    optimized.svgPages.some((page) => page.kind === 'assembly-guide'),
+    false,
+    'assembly guide should be omitted when disabled'
+  );
+});
+
+test('assembly guide labels remain unique even when tiny shards are grouped', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'truncatedOctahedron',
+      edgeLength: 85,
+      faceMode: 'mixed'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: true
+    }
+  });
+
+  const assembly = optimized.svgPages.find((page) => page.kind === 'assembly-guide');
+  assert.ok(assembly, 'expected assembly guide page');
+
+  const labels = Array.from((assembly?.content ?? '').matchAll(/Piece ([A-Z]+)/g)).map((match) => match[1]);
+  assert.ok(labels.length > 0, 'expected at least one piece label in assembly guide');
+  assert.equal(new Set(labels).size, labels.length, 'assembly guide piece labels should be unique');
+});
+
 test('split sheet output ignores legacy join options and remains straight-cut only', () => {
   const shapeDefinition = makeShape({
     generationMode: 'polyhedron',
@@ -475,6 +654,253 @@ test('top-row split closure avoids non-split outer top edge routing', () => {
     Math.max(...topBoundaryCuts) < rightEdge - leftEdge - 1,
     'top-row closure should not create a full-width outer top-edge cut'
   );
+});
+
+function extractCutSegmentBounds(svgContent: string): Array<{
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}> {
+  return Array.from(
+    svgContent.matchAll(
+      /<path class="cut"[^>]* d="M ([0-9.-]+) ([0-9.-]+) L ([0-9.-]+) ([0-9.-]+)"/g
+    )
+  ).map((match) => {
+    const x1 = Number(match[1]);
+    const y1 = Number(match[2]);
+    const x2 = Number(match[3]);
+    const y2 = Number(match[4]);
+    return {
+      minX: Math.min(x1, x2),
+      minY: Math.min(y1, y2),
+      maxX: Math.max(x1, x2),
+      maxY: Math.max(y1, y2)
+    };
+  });
+}
+
+function groupSegmentsIntoComponents(
+  segments: Array<{ minX: number; minY: number; maxX: number; maxY: number }>
+): Array<{ minX: number; minY: number; maxX: number; maxY: number }> {
+  if (segments.length === 0) {
+    return [];
+  }
+
+  const eps = 0.2;
+  const parent = segments.map((_segment, index) => index);
+  const find = (a: number): number => {
+    while (parent[a] !== a) {
+      parent[a] = parent[parent[a]];
+      a = parent[a];
+    }
+    return a;
+  };
+  const union = (a: number, b: number): void => {
+    const rootA = find(a);
+    const rootB = find(b);
+    if (rootA !== rootB) {
+      parent[rootA] = rootB;
+    }
+  };
+
+  for (let i = 0; i < segments.length; i += 1) {
+    for (let j = i + 1; j < segments.length; j += 1) {
+      const a = segments[i];
+      const b = segments[j];
+      const overlap =
+        a.maxX >= b.minX - eps &&
+        b.maxX >= a.minX - eps &&
+        a.maxY >= b.minY - eps &&
+        b.maxY >= a.minY - eps;
+      if (overlap) {
+        union(i, j);
+      }
+    }
+  }
+
+  const groups = new Map<number, typeof segments>();
+  for (let i = 0; i < segments.length; i += 1) {
+    const root = find(i);
+    const list = groups.get(root) ?? [];
+    list.push(segments[i]);
+    groups.set(root, list);
+  }
+
+  return [...groups.values()].map((group) => ({
+    minX: Math.min(...group.map((b) => b.minX)),
+    minY: Math.min(...group.map((b) => b.minY)),
+    maxX: Math.max(...group.map((b) => b.maxX)),
+    maxY: Math.max(...group.map((b) => b.maxY))
+  }));
+}
+
+function detectComponentOverlaps(
+  svgContent: string,
+  gapThreshold: number
+): Array<{ i: number; j: number; overlapX: number; overlapY: number }> {
+  const segments = extractCutSegmentBounds(svgContent);
+  const components = groupSegmentsIntoComponents(segments);
+  const overlaps: Array<{ i: number; j: number; overlapX: number; overlapY: number }> = [];
+
+  for (let i = 0; i < components.length; i += 1) {
+    for (let j = i + 1; j < components.length; j += 1) {
+      const a = components[i];
+      const b = components[j];
+      const overlapX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
+      const overlapY = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
+      if (overlapX > gapThreshold && overlapY > gapThreshold) {
+        overlaps.push({ i, j, overlapX, overlapY });
+      }
+    }
+  }
+
+  return overlaps;
+}
+
+test('packed dodecahedron-70 sheets have no overlapping cut components', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 70,
+      faceMode: 'uniform'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  });
+
+  const sheetPages = optimized.svgPages.filter((page) => page.kind === 'sheet');
+  assert.ok(sheetPages.length >= 2, 'expected multiple packed sheets');
+
+  for (const page of sheetPages) {
+    const overlaps = detectComponentOverlaps(page.content, 0.5);
+    assert.deepEqual(
+      overlaps,
+      [],
+      `packed page ${page.fileNameSuffix} has ${overlaps.length} cut component bounding-box overlap(s)`
+    );
+  }
+});
+
+test('packed dodecahedron-50 sheets have no overlapping cut components', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 50,
+      faceMode: 'uniform'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  });
+
+  const sheetPages = optimized.svgPages.filter((page) => page.kind === 'sheet');
+  assert.ok(sheetPages.length >= 1, 'expected at least one packed sheet');
+
+  for (const page of sheetPages) {
+    const overlaps = detectComponentOverlaps(page.content, 0.5);
+    assert.deepEqual(
+      overlaps,
+      [],
+      `packed page ${page.fileNameSuffix} has cut component bounding-box overlap(s)`
+    );
+  }
+});
+
+test('packed truncatedOctahedron-85 sheets have no overlapping cut components', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'truncatedOctahedron',
+      edgeLength: 85,
+      faceMode: 'mixed'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  });
+
+  const sheetPages = optimized.svgPages.filter((page) => page.kind === 'sheet');
+  assert.ok(sheetPages.length >= 1, 'expected at least one packed sheet');
+
+  for (const page of sheetPages) {
+    const overlaps = detectComponentOverlaps(page.content, 0.5);
+    assert.deepEqual(
+      overlaps,
+      [],
+      `packed page ${page.fileNameSuffix} has cut component bounding-box overlap(s)`
+    );
+  }
+});
+
+test('packed sheets keep all content within page boundaries', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 70,
+      faceMode: 'uniform'
+    }
+  });
+
+  const optimized = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      optimizePacking: true,
+      allowRotation: true,
+      includeAssemblyGuide: false
+    }
+  });
+
+  const pageWidth = 215.9;
+  const pageHeight = 279.4;
+
+  for (const page of optimized.svgPages.filter((p) => p.kind === 'sheet')) {
+    const segments = extractCutSegmentBounds(page.content);
+    for (const segment of segments) {
+      assert.ok(
+        segment.minX >= -0.5 && segment.maxX <= pageWidth + 0.5,
+        `page ${page.fileNameSuffix}: cut segment X [${segment.minX.toFixed(1)}, ${segment.maxX.toFixed(1)}] outside page width ${pageWidth}`
+      );
+      assert.ok(
+        segment.minY >= -0.5 && segment.maxY <= pageHeight + 0.5,
+        `page ${page.fileNameSuffix}: cut segment Y [${segment.minY.toFixed(1)}, ${segment.maxY.toFixed(1)}] outside page height ${pageHeight}`
+      );
+    }
+  }
 });
 
 test('frustum top-middle sheet closes all odd endpoints on internal boundaries', () => {
