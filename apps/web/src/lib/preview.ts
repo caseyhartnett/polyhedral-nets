@@ -181,8 +181,8 @@ function rotatePoint(
   };
 }
 
-function shadeBlue(intensity: number): string {
-  const base = { r: 37, g: 99, b: 235 };
+function shadeAccent(intensity: number): string {
+  const base = { r: 143, g: 63, b: 24 };
   const clamped = Math.max(0.42, Math.min(1.05, intensity));
   const r = Math.round(base.r * clamped);
   const g = Math.round(base.g * clamped);
@@ -254,8 +254,8 @@ export function buildSolidPreview(def: PreviewShapeDefinition, camera: Wireframe
 
         return {
           points,
-          fill: shadeBlue(intensity),
-          stroke: '#1d4ed8',
+          fill: shadeAccent(intensity),
+          stroke: '#8f3f18',
           depth
         };
       })
