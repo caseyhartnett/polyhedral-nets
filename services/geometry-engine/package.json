@@ -10,10 +10,13 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts --max-warnings=0",
-    "test": "npm run build && node --test dist/*.test.js"
+    "test": "npm run build && node --test dist/*.test.js",
+    "demo:split-pack": "npm run build && node dist/split-pack-prototype/demo.js"
   },
   "dependencies": {
-    "@torrify/shared-types": "0.1.0"
+    "@countertype/clipper2-ts": "^1.5.4",
+    "@torrify/shared-types": "0.1.0",
+    "svg-path-commander": "^2.1.11"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

@@ -1130,30 +1130,96 @@ function buildPolyhedronMesh(preset: PolyhedronPreset, edgeLength: number, ringS
   return { vertices, faces, triangles };
 }
 
-function buildPolyhedronNet(mesh: MeshModel): NetModel {
+interface NetPlacementCandidate {
+  faceId: number;
+  projection: FaceProjection2D;
+  score: number;
+}
+
+interface NetQuality {
+  area: number;
+  maxSide: number;
+  minSide: number;
+  width: number;
+  height: number;
+}
+
+function faceCentroid3D(mesh: MeshModel, face: Face3D): Vec3 {
+  const points = face.vertexIndices.map((index) => mesh.vertices[index]);
+  const sum = points.reduce((acc, point) => addVec(acc, point), vec(0, 0, 0));
+  return scaleVec(sum, 1 / Math.max(1, points.length));
+}
+
+function netBoundsFromFaces(faces: NetFace[]): Bounds {
+  const points = faces.flatMap((face) => face.points);
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  return {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys)
+  };
+}
+
+function evaluateNetQuality(net: NetModel): NetQuality {
+  const bounds = netBoundsFromFaces(net.faces);
+  const width = Math.max(0, bounds.maxX - bounds.minX);
+  const height = Math.max(0, bounds.maxY - bounds.minY);
+  return {
+    area: width * height,
+    maxSide: Math.max(width, height),
+    minSide: Math.min(width, height),
+    width,
+    height
+  };
+}
+
+function comparePlacementCandidates(left: NetPlacementCandidate, right: NetPlacementCandidate): number {
+  const scoreDiff = left.score - right.score;
+  if (Math.abs(scoreDiff) > EPSILON) {
+    return scoreDiff;
+  }
+
+  const centroidXDiff = left.projection.centroid.x - right.projection.centroid.x;
+  if (Math.abs(centroidXDiff) > EPSILON) {
+    return centroidXDiff;
+  }
+
+  const centroidYDiff = left.projection.centroid.y - right.projection.centroid.y;
+  if (Math.abs(centroidYDiff) > EPSILON) {
+    return centroidYDiff;
+  }
+
+  return left.faceId - right.faceId;
+}
+
+function buildPolyhedronNetWithRoot(mesh: MeshModel, rootFaceId: number): NetModel {
   const byId = new Map(mesh.faces.map((face) => [face.id, face]));
   const projections = new Map<number, FaceProjection2D>(
     mesh.faces.map((face) => [face.id, faceProjection2D(mesh, face)])
   );
   const adjacency = buildFaceAdjacency(mesh);
-  const rootFace = mesh.faces.reduce((best, current) =>
-    current.vertexIndices.length > best.vertexIndices.length ? current : best
-  );
+  const rootFace = byId.get(rootFaceId);
+  if (!rootFace) {
+    throw new Error(`Missing root face ${rootFaceId} while unfolding polyhedron net`);
+  }
 
   const placed = new Map<number, FaceProjection2D>();
   placed.set(rootFace.id, projections.get(rootFace.id)!);
 
   while (placed.size < mesh.faces.length) {
-    let bestPlacement:
-      | {
-          faceId: number;
-          projection: FaceProjection2D;
-          score: number;
-        }
-      | undefined;
+    let bestPlacement: NetPlacementCandidate | undefined;
 
-    for (const [parentId, parentProjection] of placed.entries()) {
-      const neighbors = adjacency.get(parentId) ?? [];
+    const parentIds = [...placed.keys()].sort((a, b) => a - b);
+    for (const parentId of parentIds) {
+      const parentProjection = placed.get(parentId);
+      if (!parentProjection) {
+        continue;
+      }
+      const neighbors = [...(adjacency.get(parentId) ?? [])].sort(
+        (left, right) => left.faceId - right.faceId || left.a - right.a || left.b - right.b
+      );
 
       for (const neighbor of neighbors) {
         if (placed.has(neighbor.faceId)) {
@@ -1173,7 +1239,7 @@ function buildPolyhedronNet(mesh: MeshModel): NetModel {
           continue;
         }
 
-        const candidates = [false, true].map((mirror) => {
+        const candidates = [false, true].map((mirror): NetPlacementCandidate => {
           const points = mapPolygonToEdge(localNeighbor.points, localA, localB, worldA, worldB, mirror);
           const byVertex = new Map<number, Pt2>();
           for (let i = 0; i < neighborFace.vertexIndices.length; i += 1) {
@@ -1197,7 +1263,7 @@ function buildPolyhedronNet(mesh: MeshModel): NetModel {
         });
 
         for (const candidate of candidates) {
-          if (!bestPlacement || candidate.score < bestPlacement.score) {
+          if (!bestPlacement || comparePlacementCandidates(candidate, bestPlacement) < 0) {
             bestPlacement = candidate;
           }
         }
@@ -1220,6 +1286,77 @@ function buildPolyhedronNet(mesh: MeshModel): NetModel {
   });
 
   return { faces };
+}
+
+function compareNetQuality(left: NetQuality, right: NetQuality): number {
+  const areaDiff = left.area - right.area;
+  if (Math.abs(areaDiff) > EPSILON) {
+    return areaDiff;
+  }
+  const maxSideDiff = left.maxSide - right.maxSide;
+  if (Math.abs(maxSideDiff) > EPSILON) {
+    return maxSideDiff;
+  }
+  const minSideDiff = left.minSide - right.minSide;
+  if (Math.abs(minSideDiff) > EPSILON) {
+    return minSideDiff;
+  }
+  const widthDiff = left.width - right.width;
+  if (Math.abs(widthDiff) > EPSILON) {
+    return widthDiff;
+  }
+  return left.height - right.height;
+}
+
+function buildPolyhedronNet(mesh: MeshModel): NetModel {
+  const rootCandidates = [...mesh.faces]
+    .map((face) => ({
+      face,
+      centroid: faceCentroid3D(mesh, face)
+    }))
+    .sort((left, right) => {
+      const vertexCountDiff = right.face.vertexIndices.length - left.face.vertexIndices.length;
+      if (vertexCountDiff !== 0) {
+        return vertexCountDiff;
+      }
+      const zDiff = left.centroid.z - right.centroid.z;
+      if (Math.abs(zDiff) > EPSILON) {
+        return zDiff;
+      }
+      const yDiff = left.centroid.y - right.centroid.y;
+      if (Math.abs(yDiff) > EPSILON) {
+        return yDiff;
+      }
+      const xDiff = left.centroid.x - right.centroid.x;
+      if (Math.abs(xDiff) > EPSILON) {
+        return xDiff;
+      }
+      return left.face.id - right.face.id;
+    })
+    .slice(0, Math.min(12, mesh.faces.length));
+
+  let bestNet: NetModel | undefined;
+  let bestQuality: NetQuality | undefined;
+
+  for (const candidate of rootCandidates) {
+    let net: NetModel;
+    try {
+      net = buildPolyhedronNetWithRoot(mesh, candidate.face.id);
+    } catch {
+      continue;
+    }
+    const quality = evaluateNetQuality(net);
+    if (!bestNet || !bestQuality || compareNetQuality(quality, bestQuality) < 0) {
+      bestNet = net;
+      bestQuality = quality;
+    }
+  }
+
+  if (!bestNet) {
+    throw new Error("Unable to unfold polyhedron net without disconnected faces");
+  }
+
+  return bestNet;
 }
 
 interface BoundaryEdge {
@@ -1870,3 +2007,5 @@ export function faceEdgeLengths2D(face: NetFace): number[] {
   }
   return lengths;
 }
+
+export * from "./split-pack-prototype/index.js";
