@@ -1269,7 +1269,7 @@
 </script>
 
 <svelte:head>
-  <title>PolyGoneWild App</title>
+  <title>OpenPottery Template Maker</title>
 </svelte:head>
 
 <main>
@@ -1280,7 +1280,7 @@
   >
     <div class="header-row">
       <div>
-        <h1>PolyGoneWild Builder</h1>
+        <h1>OpenPottery Template Maker</h1>
         <p class="sub">Guided-first for non-technical users. Session state clears on refresh.</p>
       </div>
       <div class="header-actions">
@@ -1987,7 +1987,7 @@
   {#if showWelcomeModal}
     <div class="modal-shell" role="dialog" aria-modal="true" aria-label="Welcome setup">
       <div class="modal">
-        <h2>Welcome to PolyGoneWild</h2>
+        <h2>Welcome to the Template Maker</h2>
         <p>Would you like a guided setup for your first export?</p>
         <div class="actions-row">
           <button class="small" type="button" on:click={startGuidedSetup}>Guided setup (recommended)</button>
@@ -2071,23 +2071,24 @@
 
 <style>
   :global(body) {
-    --bg-0: #1e1e1e;
-    --bg-1: #252526;
-    --card: #2d2d30;
-    --card-border: #3e3e42;
-    --panel: #252526;
-    --text: #f3f4f6;
-    --muted: #9ca3af;
-    --input-bg: #1e1e1e;
-    --input-border: #3e3e42;
-    --button: #3e3e42;
-    --button-hover: #4e4e52;
-    --button-text: #f9fafb;
-    --accent: #2563eb;
-    --danger: #ef4444;
-    --success: #22c55e;
+    --bg-0: #f5efe4;
+    --bg-1: #f3eadb;
+    --card: #fffdf8;
+    --card-border: #ddcdb4;
+    --panel: #fcf5ea;
+    --text: #1f1d1a;
+    --muted: #5b554c;
+    --input-bg: #fffdf8;
+    --input-border: #ddcdb4;
+    --button: #eee4d5;
+    --button-hover: #d7c5aa;
+    --button-text: #1f1d1a;
+    --accent: #b25a2e;
+    --accent-2: #8f3f18;
+    --danger: #c2410c;
+    --success: #166534;
     margin: 0;
-    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
     background: linear-gradient(160deg, var(--bg-0), var(--bg-1));
     color: var(--text);
   }
@@ -2106,7 +2107,7 @@
     border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 1rem;
-    box-shadow: 0 16px 34px rgba(4, 9, 20, 0.42);
+    box-shadow: 0 4px 20px rgba(31, 29, 26, 0.06);
   }
 
   h1,
@@ -2150,7 +2151,7 @@
   }
 
   .small-link {
-    color: #c4d3ee;
+    color: var(--accent);
     text-decoration: none;
     font-size: 0.8rem;
   }
@@ -2168,9 +2169,9 @@
   }
 
   .chip {
-    border: 1px solid #5a6880;
-    background: #20263b;
-    color: #dbeafe;
+    border: 1px solid var(--card-border);
+    background: #eee4d5;
+    color: var(--text);
     border-radius: 999px;
     padding: 0.35rem 0.7rem;
     font-size: 0.75rem;
@@ -2179,7 +2180,7 @@
   .chip-active {
     background: var(--accent);
     border-color: var(--accent);
-    color: white;
+    color: #fffdf8;
   }
 
   .tour-banner {
@@ -2188,9 +2189,9 @@
     gap: 0.5rem;
     flex-wrap: wrap;
     align-items: center;
-    border: 1px dashed #8fb3ff;
+    border: 1px dashed var(--accent);
     border-radius: 10px;
-    background: rgba(37, 99, 235, 0.15);
+    background: rgba(178, 90, 46, 0.1);
     padding: 0.5rem;
     font-size: 0.82rem;
   }
@@ -2210,15 +2211,15 @@
 
   .builder-tabs button,
   .poly-subtabs button {
-    background: #3e3e42;
-    color: #d1d5db;
-    border: 1px solid #4e4e52;
+    background: var(--button);
+    color: var(--text);
+    border: 1px solid var(--card-border);
   }
 
   .builder-tabs button.tab-active,
   .poly-subtabs button.tab-active {
     background: var(--accent);
-    color: #ffffff;
+    color: #fffdf8;
     border-color: var(--accent);
   }
 
@@ -2243,8 +2244,8 @@
     width: 1rem;
     height: 1rem;
     border-radius: 999px;
-    border: 1px solid #667089;
-    color: #c4d3ee;
+    border: 1px solid var(--card-border);
+    color: var(--muted);
     font-size: 0.68rem;
     cursor: help;
   }
@@ -2283,9 +2284,9 @@
   }
 
   .cricut-perf-box {
-    border: 1px solid #3f4352;
+    border: 1px solid var(--card-border);
     border-radius: 9px;
-    background: #262b38;
+    background: #eee4d5;
     padding: 0.55rem 0.6rem;
     margin: 0.2rem 0 0.45rem;
   }
@@ -2308,12 +2309,12 @@
   }
 
   input:disabled {
-    background: #0f1b35;
-    color: #8ea2c5;
+    background: #eee4d5;
+    color: var(--muted);
   }
 
   button {
-    border: 1px solid #4e4e52;
+    border: 1px solid var(--card-border);
     background: var(--button);
     color: var(--button-text);
     border-radius: 9px;
@@ -2349,8 +2350,8 @@
   }
 
   .success-panel {
-    border: 1px solid rgba(34, 197, 94, 0.45);
-    background: rgba(34, 197, 94, 0.13);
+    border: 1px solid rgba(22, 101, 52, 0.4);
+    background: rgba(22, 101, 52, 0.1);
     border-radius: 10px;
     padding: 0.6rem;
     margin-top: 0.7rem;
@@ -2362,16 +2363,16 @@
   }
 
   .coach-card {
-    border: 1px dashed #5d6b84;
+    border: 1px dashed var(--card-border);
     border-radius: 10px;
-    background: #272a34;
+    background: #fcf5ea;
     padding: 0.65rem;
     margin-top: 0.7rem;
   }
 
   .coach-card p {
     margin: 0.35rem 0 0;
-    color: #b9c4d9;
+    color: var(--muted);
     font-size: 0.78rem;
   }
 
@@ -2414,13 +2415,13 @@
     border: 1px solid var(--card-border);
     border-radius: 10px;
     padding: 0.5rem;
-    background: #252526;
+    background: var(--panel);
   }
 
   .preview-pane h3 {
     margin: 0;
     font-size: 0.87rem;
-    color: #f3f4f6;
+    color: var(--text);
   }
 
   .preview-pane-head {
@@ -2442,9 +2443,9 @@
     border: 1px solid var(--card-border);
     border-radius: 8px;
     background:
-      linear-gradient(rgba(62, 62, 66, 0.7) 1px, transparent 1px) 0 0 / 100% 20px,
-      linear-gradient(90deg, rgba(62, 62, 66, 0.7) 1px, transparent 1px) 0 0 / 20px 100%,
-      #1e1e1e;
+      linear-gradient(rgba(221, 205, 180, 0.5) 1px, transparent 1px) 0 0 / 100% 20px,
+      linear-gradient(90deg, rgba(221, 205, 180, 0.5) 1px, transparent 1px) 0 0 / 20px 100%,
+      #fcf5ea;
     cursor: grab;
     touch-action: none;
     user-select: none;
@@ -2461,7 +2462,7 @@
     border: 1px solid var(--card-border);
     border-radius: 10px;
     margin-top: 0.5rem;
-    background: #ffffff;
+    background: #fffdf8;
     object-fit: contain;
   }
 
@@ -2469,7 +2470,7 @@
     margin-top: 0.9rem;
     border: 1px solid var(--card-border);
     border-radius: 11px;
-    background: #24252f;
+    background: #fcf5ea;
     padding: 0.7rem;
   }
 
@@ -2495,10 +2496,10 @@
 
   .recipe-grid article,
   .glossary article {
-    border: 1px solid #3f4352;
+    border: 1px solid var(--card-border);
     border-radius: 9px;
     padding: 0.5rem;
-    background: #2d3140;
+    background: #eee4d5;
   }
 
   .recipe-grid p,
@@ -2509,7 +2510,7 @@
   .troubleshooting ul {
     margin: 0.35rem 0 0;
     padding-left: 1rem;
-    color: #ccd6ea;
+    color: var(--muted);
   }
 
   .troubleshooting li {
@@ -2518,14 +2519,14 @@
   }
 
   .tour-highlight {
-    outline: 2px solid #7fb2ff;
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
   .modal-shell {
     position: fixed;
     inset: 0;
-    background: rgba(7, 11, 20, 0.72);
+    background: rgba(31, 29, 26, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2535,8 +2536,8 @@
 
   .modal {
     width: min(560px, 100%);
-    background: #1f2536;
-    border: 1px solid #495572;
+    background: #fffdf8;
+    border: 1px solid var(--card-border);
     border-radius: 14px;
     padding: 1rem;
   }
@@ -2568,47 +2569,52 @@
     gap: 0.35rem;
     padding: 0.65rem;
     border-radius: 11px;
-    border: 1px solid #4a5977;
-    background: #252f45;
-    color: #e2e8f0;
+    border: 1px solid var(--card-border);
+    background: #eee4d5;
+    color: var(--text);
   }
 
   .choice-card span {
     font-size: 0.78rem;
-    color: #b7c6df;
+    color: var(--muted);
   }
 
   .choice-active {
-    border-color: #2f6ff5;
-    background: #2145a8;
+    border-color: var(--accent);
+    background: var(--accent-2);
+    color: #fffdf8;
+  }
+
+  .choice-active span {
+    color: rgba(255, 253, 248, 0.9);
   }
 
   .layer-cut {
     fill: none;
-    stroke: #2563eb;
+    stroke: var(--accent);
     stroke-width: 1.1;
   }
 
   .layer-score {
     fill: none;
-    stroke: #2563eb;
+    stroke: var(--accent);
     stroke-width: 1.1;
   }
 
   .layer-guide {
     fill: none;
-    stroke: #2563eb;
+    stroke: var(--accent);
     stroke-width: 1.1;
   }
 
   .sheet-guide-line {
-    stroke: #ef4444;
+    stroke: var(--danger);
     stroke-width: 1.35;
     stroke-dasharray: 6 4;
     vector-effect: non-scaling-stroke;
     pointer-events: none;
     opacity: 0.95;
-    filter: drop-shadow(0 0 1.1px rgba(239, 68, 68, 0.45));
+    filter: drop-shadow(0 0 1.1px rgba(194, 65, 12, 0.45));
   }
 
   .solid-face {

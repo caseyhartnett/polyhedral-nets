@@ -1,5 +1,5 @@
 <svelte:head>
-  <title>PolyGoneWild | Free Geometric Template Maker</title>
+  <title>OpenPottery Template Maker | Free Geometric Template Maker</title>
   <meta
     name="description"
     content="Create precise 3D forms and printable templates for pottery, papercraft, and design. Free, browser-based, no CAD required."
@@ -21,7 +21,7 @@
     </div>
 
     <aside class="hero-panel">
-      <h2>Why use PolyGoneWild?</h2>
+      <h2>Why use the template maker?</h2>
       <ul>
         <li>100% free, runs in browser</li>
         <li>No CAD experience needed</li>
@@ -84,15 +84,15 @@
   }
 
   .landing {
-    --lp-bg-0: #0f1727;
-    --lp-bg-1: #1a2538;
-    --lp-card: #202d43;
-    --lp-card-2: #273751;
-    --lp-line: #384a66;
-    --lp-ink: #f1f5fb;
-    --lp-muted: #b8c5db;
-    --lp-accent: #3c78ff;
-    --lp-accent-2: #2f63d4;
+    --lp-bg-0: #f5efe4;
+    --lp-bg-1: #f3eadb;
+    --lp-card: #fffdf8;
+    --lp-card-2: #fcf5ea;
+    --lp-line: #ddcdb4;
+    --lp-ink: #1f1d1a;
+    --lp-muted: #5b554c;
+    --lp-accent: #b25a2e;
+    --lp-accent-2: #8f3f18;
     min-height: 100vh;
     width: 100%;
     margin: 0;
@@ -101,10 +101,10 @@
     display: grid;
     gap: 1rem;
     color: var(--lp-ink);
-    font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+    font-family: 'Source Serif 4', Georgia, serif;
     background:
-      radial-gradient(circle at 85% 10%, rgba(86, 154, 255, 0.25), transparent 38%),
-      radial-gradient(circle at 15% 75%, rgba(67, 101, 172, 0.26), transparent 40%),
+      radial-gradient(circle at 85% 10%, rgba(178, 90, 46, 0.08), transparent 38%),
+      radial-gradient(circle at 15% 75%, rgba(143, 63, 24, 0.06), transparent 40%),
       linear-gradient(155deg, var(--lp-bg-0), var(--lp-bg-1));
   }
 
@@ -115,7 +115,7 @@
     border-radius: 16px;
     padding: 1rem;
     background: var(--lp-card);
-    box-shadow: 0 16px 34px rgba(3, 8, 18, 0.45);
+    box-shadow: 0 4px 20px rgba(31, 29, 26, 0.06);
   }
 
   .hero {
@@ -129,7 +129,7 @@
     border: 1px solid var(--lp-line);
     border-radius: 12px;
     padding: 0.8rem;
-    background: var(--lp-card-2);
+    background: #eee4d5;
   }
 
   .hero-panel ul {
@@ -146,10 +146,15 @@
   .kicker {
     margin: 0;
     font-size: 0.78rem;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.07em;
     text-transform: uppercase;
-    color: #9fc1ff;
+    color: var(--lp-accent);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  h1, h2, h3 {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
   }
 
   h1 {
@@ -189,24 +194,25 @@
     align-items: center;
     justify-content: center;
     text-decoration: none;
-    border: 1px solid #4f6487;
+    border: 1px solid var(--lp-line);
     border-radius: 10px;
     padding: 0.62rem 0.9rem;
-    background: #324666;
-    color: #e8eef9;
+    background: #d7c5aa;
+    color: var(--lp-ink);
     font-weight: 600;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
     transition: background 140ms ease, transform 140ms ease;
   }
 
   .button:hover {
-    background: #3a5177;
+    background: #ddcdb4;
     transform: translateY(-1px);
   }
 
   .button-primary {
     border-color: var(--lp-accent);
     background: var(--lp-accent);
-    color: #f8fbff;
+    color: #fffdf8;
   }
 
   .button-primary:hover {
@@ -227,21 +233,21 @@
     border: 1px solid var(--lp-line);
     border-radius: 12px;
     padding: 0.75rem;
-    background: var(--lp-card-2);
+    background: #eee4d5;
   }
 
   figure img {
     width: 100%;
     height: 185px;
     object-fit: contain;
-    border: 1px solid #4f6487;
+    border: 1px solid var(--lp-line);
     border-radius: 9px;
-    background: #d6dcea;
+    background: #fcf5ea;
   }
 
   figcaption {
     margin-top: 0.4rem;
-    color: #c7d4ea;
+    color: var(--lp-muted);
     font-size: 0.84rem;
   }
 

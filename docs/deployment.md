@@ -66,7 +66,7 @@ In Pages project:
 
 If you are using this tool alongside another site (for example, `openpottery.com`):
 
-- Attach `tool.openpottery.com` in this **PolyGoneWild Pages project** under `Custom domains`
+- Attach `tool.openpottery.com` in this **tool's Pages project** under `Custom domains`
 - Keep `openpottery.com` and `www.openpottery.com` attached to the separate **OpenPottery Pages project**
 - Do not attach `tool.openpottery.com` to the OpenPottery project
 
