@@ -1,8 +1,11 @@
 import {
   buildCanonicalGeometry,
+  buildBaselineGridSheets as buildBaselineGridSheetsInt,
   renderTemplatePdf,
   renderTemplateStl,
-  renderTemplateSvg
+  renderTemplateSvg,
+  scaleToInt,
+  splitAndPack
 } from '@torrify/geometry-engine';
 import type {
   CanonicalGeometry,
@@ -13,6 +16,15 @@ import type {
   SvgLayer,
   Units
 } from '@torrify/shared-types';
+import {
+  SPLIT_PACK_SCALE_DEFAULT,
+  buildAssignmentsFromPackedSheets,
+  buildGridTileMeta,
+  buildGridTilesInt,
+  buildSplitPackConfig,
+  buildSplitPackTemplateGeometry,
+  splitSheetToLayerPaths
+} from './split-pack-adapter';
 
 const MM_PER_INCH = 25.4;
 const EPSILON = 1e-9;
@@ -1508,55 +1520,6 @@ function polygonBounds(points: Point2[]): Bounds {
   };
 }
 
-function projectPolygonOntoAxis(
-  points: Point2[],
-  axis: { x: number; y: number }
-): { min: number; max: number } {
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
-  for (const point of points) {
-    const projection = point.x * axis.x + point.y * axis.y;
-    min = Math.min(min, projection);
-    max = Math.max(max, projection);
-  }
-  return { min, max };
-}
-
-function convexPolygonsIntersect(a: Point2[], b: Point2[], padding = EPSILON): boolean {
-  if (a.length < 3 || b.length < 3) {
-    return boundsOverlap(polygonBounds(a), polygonBounds(b), padding);
-  }
-
-  const axesFrom = (points: Point2[]): Array<{ x: number; y: number }> => {
-    const axes: Array<{ x: number; y: number }> = [];
-    for (let i = 0; i < points.length; i += 1) {
-      const start = points[i];
-      const end = points[(i + 1) % points.length];
-      const edgeX = end.x - start.x;
-      const edgeY = end.y - start.y;
-      const axisX = -edgeY;
-      const axisY = edgeX;
-      const length = Math.hypot(axisX, axisY);
-      if (length <= EPSILON) {
-        continue;
-      }
-      axes.push({ x: axisX / length, y: axisY / length });
-    }
-    return axes;
-  };
-
-  const axes = [...axesFrom(a), ...axesFrom(b)];
-  for (const axis of axes) {
-    const projectionA = projectPolygonOntoAxis(a, axis);
-    const projectionB = projectPolygonOntoAxis(b, axis);
-    if (projectionA.max <= projectionB.min + padding || projectionB.max <= projectionA.min + padding) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 function createPlacementForComponent(
   component: PackableComponent,
   x: number,
@@ -2158,7 +2121,199 @@ function resolveMaterialSheetSize(layout: ExportSheetLayoutOptions | undefined, 
   };
 }
 
-function buildSvgPagesForLayout(
+interface OrientationEvaluation {
+  geometry: CanonicalGeometry;
+  bounds: Bounds;
+  cols: number;
+  rows: number;
+  sheets: number;
+  angleDeg: number;
+}
+
+function rotatePoint(point: Point2, pivot: Point2, cosTheta: number, sinTheta: number): Point2 {
+  const dx = point.x - pivot.x;
+  const dy = point.y - pivot.y;
+  return {
+    x: pivot.x + dx * cosTheta - dy * sinTheta,
+    y: pivot.y + dx * sinTheta + dy * cosTheta
+  };
+}
+
+function rotateGeometry(
+  geometry: CanonicalGeometry,
+  bounds: Bounds,
+  angleDeg: number
+): CanonicalGeometry {
+  const normalizedAngle = ((angleDeg % 360) + 360) % 360;
+  if (Math.abs(normalizedAngle) <= EPSILON) {
+    return geometry;
+  }
+
+  const theta = (normalizedAngle * Math.PI) / 180;
+  const cosTheta = Math.cos(theta);
+  const sinTheta = Math.sin(theta);
+  const pivot: Point2 = {
+    x: (bounds.minX + bounds.maxX) * 0.5,
+    y: (bounds.minY + bounds.maxY) * 0.5
+  };
+
+  const rotatedPaths: LayerPath[] = geometry.template.paths.map((path) => ({
+    ...path,
+    points: path.points.map((point) => rotatePoint(point, pivot, cosTheta, sinTheta))
+  }));
+  const rotatedBounds = buildTemplateBounds(rotatedPaths);
+  if (!rotatedBounds) {
+    return geometry;
+  }
+  return {
+    ...geometry,
+    template: {
+      ...geometry.template,
+      width: rotatedBounds.maxX - rotatedBounds.minX,
+      height: rotatedBounds.maxY - rotatedBounds.minY,
+      paths: rotatedPaths
+    }
+  };
+}
+
+function evaluateOrientation(
+  geometry: CanonicalGeometry,
+  bounds: Bounds,
+  usableWidth: number,
+  usableHeight: number,
+  angleDeg: number
+): OrientationEvaluation {
+  const contentWidth = bounds.maxX - bounds.minX;
+  const contentHeight = bounds.maxY - bounds.minY;
+  const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
+  const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+  return {
+    geometry,
+    bounds,
+    cols,
+    rows,
+    sheets: cols * rows,
+    angleDeg
+  };
+}
+
+interface OrientationScore {
+  angleDeg: number;
+  cols: number;
+  rows: number;
+  sheets: number;
+  wastedArea: number;
+}
+
+function evaluateOrientationScore(
+  points: Point2[],
+  pivot: Point2,
+  usableWidth: number,
+  usableHeight: number,
+  angleDeg: number
+): OrientationScore {
+  const theta = (angleDeg * Math.PI) / 180;
+  const cosTheta = Math.cos(theta);
+  const sinTheta = Math.sin(theta);
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const point of points) {
+    const rotated = rotatePoint(point, pivot, cosTheta, sinTheta);
+    if (rotated.x < minX) {
+      minX = rotated.x;
+    }
+    if (rotated.y < minY) {
+      minY = rotated.y;
+    }
+    if (rotated.x > maxX) {
+      maxX = rotated.x;
+    }
+    if (rotated.y > maxY) {
+      maxY = rotated.y;
+    }
+  }
+
+  const contentWidth = Math.max(0, maxX - minX);
+  const contentHeight = Math.max(0, maxY - minY);
+  const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
+  const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+  const sheetArea = cols * usableWidth * rows * usableHeight;
+  const contentArea = contentWidth * contentHeight;
+  return {
+    angleDeg,
+    cols,
+    rows,
+    sheets: cols * rows,
+    wastedArea: sheetArea - contentArea
+  };
+}
+
+function compareOrientationScores(left: OrientationScore, right: OrientationScore): number {
+  if (left.sheets !== right.sheets) {
+    return left.sheets - right.sheets;
+  }
+  if (left.cols !== right.cols) {
+    return left.cols - right.cols;
+  }
+  if (left.rows !== right.rows) {
+    return left.rows - right.rows;
+  }
+  if (Math.abs(left.wastedArea - right.wastedArea) > EPSILON) {
+    return left.wastedArea - right.wastedArea;
+  }
+  const leftAxisPenalty = Math.min(left.angleDeg % 90, 90 - (left.angleDeg % 90));
+  const rightAxisPenalty = Math.min(right.angleDeg % 90, 90 - (right.angleDeg % 90));
+  if (leftAxisPenalty !== rightAxisPenalty) {
+    return leftAxisPenalty - rightAxisPenalty;
+  }
+  return left.angleDeg - right.angleDeg;
+}
+
+function chooseBestOrientation(
+  geometry: CanonicalGeometry,
+  bounds: Bounds,
+  usableWidth: number,
+  usableHeight: number
+): OrientationEvaluation {
+  const baseOrientation = evaluateOrientation(geometry, bounds, usableWidth, usableHeight, 0);
+  if (baseOrientation.sheets <= 1) {
+    return baseOrientation;
+  }
+
+  const points = geometry.template.paths.flatMap((path) => path.points);
+  if (points.length === 0) {
+    return baseOrientation;
+  }
+
+  const pivot: Point2 = {
+    x: (bounds.minX + bounds.maxX) * 0.5,
+    y: (bounds.minY + bounds.maxY) * 0.5
+  };
+  let best = evaluateOrientationScore(points, pivot, usableWidth, usableHeight, 0);
+
+  for (let angleDeg = 1; angleDeg < 180; angleDeg += 1) {
+    const candidate = evaluateOrientationScore(points, pivot, usableWidth, usableHeight, angleDeg);
+    if (compareOrientationScores(candidate, best) < 0) {
+      best = candidate;
+    }
+  }
+
+  if (best.angleDeg === 0) {
+    return baseOrientation;
+  }
+
+  const rotatedGeometry = rotateGeometry(geometry, bounds, best.angleDeg);
+  const rotatedBounds = buildTemplateBounds(rotatedGeometry.template.paths);
+  if (!rotatedBounds) {
+    return baseOrientation;
+  }
+  return evaluateOrientation(rotatedGeometry, rotatedBounds, usableWidth, usableHeight, best.angleDeg);
+}
+
+function buildSvgPagesForLayoutLegacy(
   geometry: CanonicalGeometry,
   layout: ExportSheetLayoutOptions | undefined
 ): GeneratedSvgPage[] {
@@ -2290,6 +2445,150 @@ function buildSvgPagesForLayout(
       content: buildAssemblyGuideSvg(geometry, bounds, guideLines, packed.assignments)
     }
   ];
+}
+
+const SPLIT_PACK_SCALE = SPLIT_PACK_SCALE_DEFAULT;
+
+function buildSvgPagesForLayout(
+  geometry: CanonicalGeometry,
+  layout: ExportSheetLayoutOptions | undefined
+): GeneratedSvgPage[] {
+  const material = resolveMaterialSheetSize(layout, geometry.template.units);
+  if (!material) {
+    return [];
+  }
+
+  const bounds = buildTemplateBounds(geometry.template.paths);
+  if (!bounds) {
+    return [];
+  }
+
+  const units = geometry.template.units;
+  const margin = Math.min(convertUnits(8, 'mm', units), material.width * 0.2, material.height * 0.2);
+  const usableWidth = material.width - margin * 2;
+  const usableHeight = material.height - margin * 2;
+  if (usableWidth <= EPSILON || usableHeight <= EPSILON) {
+    throw new Error(`Material ${material.label} is too small after margins`);
+  }
+
+  const orientation = chooseBestOrientation(geometry, bounds, usableWidth, usableHeight);
+  const workingGeometry = orientation.geometry;
+  const workingBounds = orientation.bounds;
+
+  const guideLines = {
+    vertical: Array.from(
+      { length: Math.max(0, Math.ceil((workingBounds.maxX - workingBounds.minX) / usableWidth) - 1) },
+      (_v, i) => Math.min(workingBounds.maxX, workingBounds.minX + (i + 1) * usableWidth)
+    ),
+    horizontal: Array.from(
+      { length: Math.max(0, Math.ceil((workingBounds.maxY - workingBounds.minY) / usableHeight) - 1) },
+      (_v, i) => Math.min(workingBounds.maxY, workingBounds.minY + (i + 1) * usableHeight)
+    )
+  };
+
+  try {
+    const { template, pieceMetaById } = buildSplitPackTemplateGeometry(workingGeometry.template.paths);
+    if (template.cutPolygons.length === 0) {
+      return buildSvgPagesForLayoutLegacy(workingGeometry, layout);
+    }
+
+    const templateInt = scaleToInt(template, SPLIT_PACK_SCALE);
+    const gridTiles = buildGridTileMeta(workingBounds, usableWidth, usableHeight);
+    const gridTilesInt = buildGridTilesInt(gridTiles, SPLIT_PACK_SCALE);
+
+    const dimEps = convertUnits(0.1, 'mm', units);
+    const areaEps = convertUnits(0.2, 'mm', units) * convertUnits(0.2, 'mm', units);
+    const spacing = convertUnits(0.6, 'mm', units);
+
+    const config = buildSplitPackConfig({
+      scale: SPLIT_PACK_SCALE,
+      materialWidth: material.width,
+      materialHeight: material.height,
+      margin,
+      dimEps,
+      areaEps,
+      spacing,
+      allowRotation: layout?.allowRotation !== false
+    });
+
+    const baselineSheets = buildBaselineGridSheetsInt(templateInt, gridTilesInt, config);
+    const baselineById = new Map(baselineSheets.map((sheet) => [sheet.id, sheet]));
+
+    const gridPages = gridTiles.map((tile, index) =>
+      buildGeneratedSvgPage(workingGeometry, material, {
+        index: index + 1,
+        row: tile.row,
+        column: tile.col,
+        fileNameSuffix: `sheet-r${tile.row}-c${tile.col}`,
+        label: `Sheet ${index + 1} (${tile.row}/${tile.rows}, ${tile.col}/${tile.cols})`,
+        paths: splitSheetToLayerPaths(
+          baselineById.get(`grid-${tile.id}`) ?? {
+            id: `grid-${tile.id}`,
+            rect: {
+              left: 0,
+              top: 0,
+              right: Math.round(material.width * SPLIT_PACK_SCALE),
+              bottom: Math.round(material.height * SPLIT_PACK_SCALE)
+            },
+            placed: []
+          },
+          SPLIT_PACK_SCALE
+        )
+      })
+    );
+
+    if (!layout?.optimizePacking) {
+      return gridPages;
+    }
+
+    const packed = splitAndPack(
+      {
+        ...templateInt,
+        fallbackGridSheets: baselineSheets
+      },
+      gridTilesInt,
+      config
+    );
+
+    if (packed.mode !== 'optimized' || packed.sheets.length === 0 || packed.sheets.length >= gridPages.length) {
+      return gridPages;
+    }
+
+    const packedPages = packed.sheets.map((sheet, index) =>
+      buildGeneratedSvgPage(workingGeometry, material, {
+        index: index + 1,
+        row: 1,
+        column: index + 1,
+        fileNameSuffix: `sheet-packed-${index + 1}`,
+        label: `Sheet ${index + 1} (packed)`,
+        paths: splitSheetToLayerPaths(sheet, SPLIT_PACK_SCALE)
+      })
+    );
+
+    if (layout.includeAssemblyGuide === false) {
+      return packedPages;
+    }
+
+    const assignments = buildAssignmentsFromPackedSheets(packed.sheets, pieceMetaById);
+    if (assignments.length === 0) {
+      return packedPages;
+    }
+
+    return [
+      ...packedPages,
+      {
+        kind: 'assembly-guide',
+        index: packedPages.length + 1,
+        row: 0,
+        column: 0,
+        fileNameSuffix: 'assembly-guide',
+        label: 'Assembly Guide',
+        content: buildAssemblyGuideSvg(workingGeometry, workingBounds, guideLines, assignments)
+      }
+    ];
+  } catch {
+    return buildSvgPagesForLayoutLegacy(workingGeometry, layout);
+  }
 }
 
 export function generateExportArtifacts(options: {

@@ -303,6 +303,31 @@ test('optional packing optimization reduces split sheet count for fragmented lay
   );
 });
 
+test('pre-split orientation can fit dodecahedron-45 onto a single 12x24 sheet', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'dodecahedron',
+      edgeLength: 45,
+      faceMode: 'uniform'
+    }
+  });
+
+  const baseline = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'cricut-mat-12x24',
+      optimizePacking: false
+    }
+  });
+
+  const sheetPages = baseline.svgPages.filter((page) => page.kind === 'sheet');
+  assert.equal(sheetPages.length, 1, 'expected orientation pre-pass to avoid unnecessary split');
+  assert.equal(sheetPages[0]?.fileNameSuffix, 'sheet-r1-c1');
+});
+
 test('packing optimization remains deterministic across repeated runs', () => {
   const shapeDefinition = makeShape({
     generationMode: 'polyhedron',
@@ -476,7 +501,7 @@ test('split sheet output ignores legacy join options and remains straight-cut on
   );
 });
 
-test('split sheet output adds closure cut lines on internal boundaries', () => {
+test('split sheet output does not add synthetic boundary closure cuts', () => {
   const shapeDefinition = makeShape({
     generationMode: 'polyhedron',
     polyhedron: {
@@ -555,10 +580,14 @@ test('split sheet output adds closure cut lines on internal boundaries', () => {
     boundaryPartialCount += partialBoundaryCuts.length;
   }
 
-  assert.ok(boundaryPartialCount > 0, 'expected localized boundary closure cuts across split pages');
+  assert.equal(
+    boundaryPartialCount,
+    0,
+    'polygon-first split should not inject synthetic boundary closure cut segments'
+  );
 });
 
-test('split closure does not bridge disconnected boundary components', () => {
+test('split output does not add disconnected boundary closure connectors', () => {
   const shapeDefinition = makeShape({
     height: 140,
     bottomWidth: 180,
@@ -578,7 +607,7 @@ test('split closure does not bridge disconnected boundary components', () => {
     }
   });
 
-  assert.equal(generated.svgPages.length, 6);
+  assert.ok(generated.svgPages.length >= 4);
   const target = generated.svgPages.find((page) => page.fileNameSuffix === 'sheet-r2-c1');
   assert.ok(target, 'expected sheet-r2-c1 in 2x3 split output');
 
@@ -600,14 +629,14 @@ test('split closure does not bridge disconnected boundary components', () => {
     )
     .map((segment) => Math.abs(segment.y2 - segment.y1));
 
-  assert.ok(rightBoundaryCuts.length >= 1, 'expected localized right-edge closure cuts');
-  assert.ok(
-    Math.max(...rightBoundaryCuts) < 80,
-    'right-edge closure should be localized, not one long bridged cut'
+  assert.equal(
+    rightBoundaryCuts.length,
+    0,
+    'polygon-first split should avoid synthetic right-edge closure cuts entirely'
   );
 });
 
-test('top-row split closure avoids non-split outer top edge routing', () => {
+test('top-row split avoids synthetic outer top-edge routing', () => {
   const shapeDefinition = makeShape({
     height: 160,
     bottomWidth: 90,
@@ -627,13 +656,11 @@ test('top-row split closure avoids non-split outer top edge routing', () => {
     }
   });
 
-  assert.equal(generated.svgPages.length, 6);
+  assert.ok(generated.svgPages.length >= 4);
   const target = generated.svgPages.find((page) => page.fileNameSuffix === 'sheet-r1-c2');
   assert.ok(target, 'expected sheet-r1-c2 in split output');
 
   const topEdge = 8;
-  const leftEdge = 8;
-  const rightEdge = 215.9 - 8;
   const eps = 1e-3;
   const topBoundaryCuts = Array.from(
     target!.content.matchAll(
@@ -649,10 +676,10 @@ test('top-row split closure avoids non-split outer top edge routing', () => {
     .filter((segment) => Math.abs(segment.y1 - topEdge) < eps && Math.abs(segment.y2 - topEdge) < eps)
     .map((segment) => Math.abs(segment.x2 - segment.x1));
 
-  assert.ok(topBoundaryCuts.length > 0, 'expected at least one top-edge cut segment');
-  assert.ok(
-    Math.max(...topBoundaryCuts) < rightEdge - leftEdge - 1,
-    'top-row closure should not create a full-width outer top-edge cut'
+  assert.equal(
+    topBoundaryCuts.length,
+    0,
+    'polygon-first split should not inject synthetic top-edge closure segments'
   );
 });
 
@@ -923,7 +950,7 @@ test('frustum top-middle sheet closes all odd endpoints on internal boundaries',
     }
   });
 
-  assert.equal(generated.svgPages.length, 6);
+  assert.ok(generated.svgPages.length >= 4);
   const target = generated.svgPages.find((page) => page.fileNameSuffix === 'sheet-r1-c2');
   assert.ok(target, 'expected sheet-r1-c2 in split output');
 

@@ -598,6 +598,18 @@ test("regular pentagonal bipyramid carries only triangular faces", () => {
   assert.equal(faceSizes.filter((size) => size === 3).length, 10, "regular pentagonal bipyramid faces should all be triangles");
 });
 
+test("polyhedron unfolding is deterministic for repeated identical inputs", () => {
+  const definition = makePolyhedronShape("dodecahedron", 45);
+  const first = buildCanonicalGeometry(definition);
+  const second = buildCanonicalGeometry(definition);
+
+  assert.equal(
+    templateSignature(first),
+    templateSignature(second),
+    "identical polyhedron requests should produce identical unfolded templates"
+  );
+});
+
 test("invalid edge counts are rejected", () => {
   assert.throws(
     () =>
