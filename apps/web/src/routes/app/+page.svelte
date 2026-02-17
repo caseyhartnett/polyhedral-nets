@@ -320,6 +320,9 @@
   let customMaterialWidth = 12;
   let customMaterialHeight = 24;
   let customMaterialUnits: Units = 'in';
+  let optimizeSheetPacking = false;
+  let allowPackingRotation = true;
+  let includeAssemblyGuide = true;
   let cricutPerforationEnabled = true;
   let cricutPerforationCutLength = 0.8;
   let cricutPerforationGapLength = 0.8;
@@ -392,6 +395,8 @@
   ).toFixed(3)})`;
   $: effectiveBottomSegments = resolvedShapeDefinition.bottomSegments;
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
+  $: generatedSvgSheetPages = generatedSvgPages.filter((page) => page.kind === 'sheet');
+  $: generatedSvgSheetCount = generatedSvgSheetPages.length;
   $: totalGeneratedDownloadFileCount = countGeneratedDownloadFiles();
   $: selectedMaterialPresetOption =
     MATERIAL_SIZE_PRESET_OPTIONS.find((option) => option.value === materialSizePreset) ??
@@ -650,16 +655,11 @@
     );
     const baseSvg = renderTemplateSvg(layeredGeometry);
 
-    const guides = buildSheetGuidesForPaths(
-      layeredGeometry.template.paths,
-      layeredGeometry.template.units,
-      generatedSheetLayoutSnapshot
-    );
-    if (!guides || (guides.vertical.length === 0 && guides.horizontal.length === 0)) {
+    const allPoints = layeredGeometry.template.paths.flatMap((path) => path.points);
+    if (allPoints.length === 0) {
       return baseSvg;
     }
 
-    const allPoints = layeredGeometry.template.paths.flatMap((path) => path.points);
     const xs = allPoints.map((point) => point.x);
     const ys = allPoints.map((point) => point.y);
     const bounds = {
@@ -668,13 +668,25 @@
       maxX: Math.max(...xs),
       maxY: Math.max(...ys)
     };
+    const baselineGuides = buildSheetGuidesForPaths(
+      layeredGeometry.template.paths,
+      layeredGeometry.template.units,
+      generatedSheetLayoutSnapshot
+    );
+    const guides = baselineGuides;
+    if (!guides || (guides.vertical.length === 0 && guides.horizontal.length === 0)) {
+      return baseSvg;
+    }
+
+    const verticalGuides = guides.vertical;
+    const horizontalGuides = guides.horizontal;
 
     const lineEls = [
-      ...guides.vertical.map(
+      ...verticalGuides.map(
         (x) =>
           `<line x1="${x.toFixed(3)}" y1="${bounds.minY.toFixed(3)}" x2="${x.toFixed(3)}" y2="${bounds.maxY.toFixed(3)}" />`
       ),
-      ...guides.horizontal.map(
+      ...horizontalGuides.map(
         (y) =>
           `<line x1="${bounds.minX.toFixed(3)}" y1="${y.toFixed(3)}" x2="${bounds.maxX.toFixed(3)}" y2="${y.toFixed(3)}" />`
       )
@@ -686,7 +698,8 @@
   }
 
   function refreshGeneratedSvgPreview(): void {
-    if (generatedSvgPages.length > 1 && generatedSvgPreviewMode === 'combined') {
+    const generatedSheetCount = generatedSvgPages.filter((page) => page.kind === 'sheet').length;
+    if (generatedSheetCount > 1 && generatedSvgPreviewMode === 'combined') {
       updateSvgPreview(buildCombinedGeneratedSvgPreview());
       return;
     }
@@ -995,6 +1008,9 @@
     try {
       const sheetLayoutOptions: ExportSheetLayoutOptions = {
         materialSizePreset,
+        optimizePacking: optimizeSheetPacking,
+        allowRotation: allowPackingRotation,
+        includeAssemblyGuide,
         customSize:
           materialSizePreset === 'custom'
             ? {
@@ -1029,8 +1045,9 @@
       generatedGeometry = generated.geometry;
       generatedArtifacts = generated.artifacts;
       generatedSvgPages = generated.svgPages;
+      const generatedSheetPages = generated.svgPages.filter((page) => page.kind === 'sheet');
       generatedSvgPreviewSheetIndex = 0;
-      generatedSvgPreviewMode = generated.svgPages.length > 1 ? 'combined' : 'sheets';
+      generatedSvgPreviewMode = generatedSheetPages.length > 1 ? 'combined' : 'sheets';
       generatedSvgLayerSnapshot = [...exportLayers];
       generatedSheetLayoutSnapshot = sheetLayoutOptions;
       generatedAtDate = new Date();
@@ -1039,10 +1056,14 @@
 
       const formats = availableArtifactFormats(generated.artifacts).map((format) => format.toUpperCase());
       const svgSplitNote =
-        generated.svgPages.length > 1
-          ? ` SVG split into ${generated.svgPages.length} sheets for ${selectedMaterialPresetOption.label}.`
+        generatedSheetPages.length > 1
+          ? ` SVG split into ${generatedSheetPages.length} sheets for ${selectedMaterialPresetOption.label}.`
           : '';
-      exportSuccess = `Files ready: ${formats.join(', ')}.${svgSplitNote} Start by downloading SVG for print testing.`;
+      const assemblyGuideNote =
+        generated.svgPages.some((page) => page.kind === 'assembly-guide')
+          ? ' Assembly guide page included for shard mapping.'
+          : '';
+      exportSuccess = `Files ready: ${formats.join(', ')}.${svgSplitNote}${assemblyGuideNote} Start by downloading SVG for print testing.`;
 
       if (guidedSetupActive) {
         guidedSetupActive = false;
@@ -1130,6 +1151,9 @@
     customMaterialWidth = 12;
     customMaterialHeight = 24;
     customMaterialUnits = 'in';
+    optimizeSheetPacking = false;
+    allowPackingRotation = true;
+    includeAssemblyGuide = true;
     generatedSvgPreviewMode = 'combined';
     generatedSvgLayerSnapshot = ['cut', 'score', 'guide'];
     generatedSheetLayoutSnapshot = undefined;
@@ -1583,6 +1607,23 @@
         {/if}
       </div>
 
+      {#if materialSizePreset !== 'none'}
+        <label class="inline-check">
+          <input type="checkbox" bind:checked={optimizeSheetPacking} />
+          Optimize sheet packing (experimental)
+        </label>
+        {#if optimizeSheetPacking}
+          <label class="inline-check">
+            <input type="checkbox" bind:checked={allowPackingRotation} />
+            Allow 90-degree rotation while packing
+          </label>
+          <label class="inline-check">
+            <input type="checkbox" bind:checked={includeAssemblyGuide} />
+            Include assembly guide SVG page
+          </label>
+        {/if}
+      {/if}
+
       {#if usingCricutMaterial}
         <div class="cricut-perf-box">
           <label class="inline-check">
@@ -1627,6 +1668,11 @@
         <p class="muted">
           SVG export is automatically split into one or more sheets/mats that fit your selected size.
         </p>
+        {#if optimizeSheetPacking}
+          <p class="muted">
+            Packing optimization is enabled. Final generated sheet count may be lower than the live grid estimate.
+          </p>
+        {/if}
       {:else}
         <p class="muted">No size constraint selected. SVG export remains one raw file.</p>
       {/if}
@@ -1714,9 +1760,9 @@
           Kind: {generatedGeometry.kind} - Faces: {generatedGeometry.metrics.faceCount} - Surface Area:
           {generatedGeometry.metrics.surfaceArea.toFixed(2)}
         </div>
-        {#if generatedSvgPages.length > 0}
+        {#if generatedSvgSheetCount > 0}
           <div class="muted">
-            SVG sheets: {generatedSvgPages.length}
+            SVG sheets: {generatedSvgSheetCount}
             {#if materialSizePreset !== 'none'}
               ({selectedMaterialPresetOption.label})
             {/if}
@@ -1866,27 +1912,29 @@
     <h2>Generated SVG Preview</h2>
     {#if generatedSvgPages.length > 1}
       <div class="actions-row">
-        <button
-          type="button"
-          class="small"
-          class:tab-active={generatedSvgPreviewMode === 'combined'}
-          on:click={() => setGeneratedSvgPreviewMode('combined')}
-        >
-          Combined Split Map
-        </button>
+        {#if generatedSvgSheetCount > 1}
+          <button
+            type="button"
+            class="small"
+            class:tab-active={generatedSvgPreviewMode === 'combined'}
+            on:click={() => setGeneratedSvgPreviewMode('combined')}
+          >
+            Combined Split Map
+          </button>
+        {/if}
         <button
           type="button"
           class="small"
           class:tab-active={generatedSvgPreviewMode === 'sheets'}
           on:click={() => setGeneratedSvgPreviewMode('sheets')}
         >
-          Sheet by Sheet
+          Page by Page
         </button>
       </div>
 
-      {#if generatedSvgPreviewMode === 'sheets'}
+      {#if generatedSvgPreviewMode === 'sheets' || generatedSvgSheetCount <= 1}
         <p class="muted">
-          Showing sheet {generatedSvgPreviewSheetIndex + 1} of {generatedSvgPages.length}. Select another sheet:
+          Showing page {generatedSvgPreviewSheetIndex + 1} of {generatedSvgPages.length}. Select another page:
         </p>
         <div class="actions-row">
           {#each generatedSvgPages as page, idx}
@@ -1896,13 +1944,14 @@
               class:tab-active={generatedSvgPreviewSheetIndex === idx}
               on:click={() => previewGeneratedSvgSheet(idx)}
             >
-              Sheet {page.row},{page.column}
+              {page.label}
             </button>
           {/each}
         </div>
       {:else}
         <p class="muted">
-          Combined map: one full template with red split lines and no split tabs, for alignment/debug review.
+          Combined map: one full template with dashed red material-grid split lines for reference.
+          Use Page by Page (and Assembly Guide, if enabled) to inspect packed output.
         </p>
       {/if}
     {:else if previewSheetGuides && materialSizePreset !== 'none'}
