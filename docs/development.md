@@ -22,10 +22,20 @@ This starts the web app on `http://localhost:5173`.
 
 ```bash
 npm run build
+npm run build:budget
+npm run perf:check
 npm run lint
 npm run typecheck
 npm run test
+npm run docs:check
+npm run test:e2e
 ```
+
+## Why these checks exist
+
+- `npm run build:budget` catches accidental client bundle growth before release.
+- `npm run perf:check` catches major geometry-generation performance regressions.
+- `npm run docs:check` keeps internal markdown links from drifting as files move.
 
 ## Web package checks
 
@@ -33,6 +43,7 @@ npm run test
 npm run -w @torrify/web typecheck
 npm run -w @torrify/web test
 npm run -w @torrify/web build
+npm run -w @torrify/web test:e2e
 ```
 
 ## Workspace map

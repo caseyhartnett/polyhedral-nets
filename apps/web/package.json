@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "svelte-kit sync && eslint src --ext .ts,.js --max-warnings=0 && svelte-check --tsconfig ./tsconfig.json",
-    "test": "sh -c 'set -e; files=\"$(find src -type f -name \"*.test.ts\")\"; if [ -z \"$files\" ]; then echo \"No web tests found\"; exit 0; fi; node --import tsx --test $files'"
+    "test": "sh -c 'set -e; files=\"$(find src -type f -name \"*.test.ts\")\"; if [ -z \"$files\" ]; then echo \"No web tests found\"; exit 0; fi; node --import tsx --test $files'",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.8",

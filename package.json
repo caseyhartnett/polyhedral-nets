@@ -1,5 +1,5 @@
 {
-  "name": "torrify-next",
+  "name": "polygonewild",
   "version": "0.1.0",
   "private": true,
   "description": "AI-assisted 3D printable shape generation platform",
@@ -17,12 +17,17 @@
     "examples:all": "npm run examples:prepare && node scripts/generate-readme-examples.mjs && node scripts/generate-shape-gallery.mjs",
     "dev": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web dev",
     "dev:web": "npm run -w @torrify/web dev",
+    "build:budget": "node scripts/check-client-bundle-budget.mjs",
+    "docs:check": "node scripts/check-doc-links.mjs",
+    "perf:check": "node scripts/check-generation-latency.mjs",
     "lint": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run --ws lint",
     "test": "npm run --ws test",
+    "test:e2e": "npm run -w @torrify/web test:e2e",
     "typecheck": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run --ws typecheck"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@playwright/test": "^1.58.2",
     "@types/node": "^24.0.0",
     "@typescript-eslint/types": "^8.24.1",
     "eslint": "^9.21.0",

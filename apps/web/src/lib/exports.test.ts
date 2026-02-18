@@ -117,11 +117,11 @@ test('artifact metadata helpers return stable values', () => {
 
   assert.equal(
     artifactFileName('pdf', 'polyhedron', when),
-    'torrify-polyhedron-2026-02-15T03-04-05.pdf'
+    'polygonewild-polyhedron-2026-02-15T03-04-05.pdf'
   );
   assert.equal(
     artifactFileName('svg', 'prism', when, 'sheet-r1-c2'),
-    'torrify-prism-2026-02-15T03-04-05-sheet-r1-c2.svg'
+    'polygonewild-prism-2026-02-15T03-04-05-sheet-r1-c2.svg'
   );
 });
 
