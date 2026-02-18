@@ -20,22 +20,7 @@ export interface PreviewShapeDefinition {
   topSegments?: number;
   generationMode?: 'legacy' | 'polyhedron';
   includeTopCap?: boolean;
-  polyhedron?: {
-    preset:
-      | 'tetrahedron'
-      | 'cube'
-      | 'octahedron'
-      | 'icosahedron'
-      | 'dodecahedron'
-      | 'cuboctahedron'
-      | 'truncatedOctahedron'
-      | 'regularPrism'
-      | 'regularAntiprism'
-      | 'regularBipyramid';
-    edgeLength: number;
-    faceMode: 'uniform' | 'mixed';
-    ringSides?: number;
-  };
+  polyhedron?: ShapeDefinition['polyhedron'];
   notches?: unknown[];
   profilePoints?: unknown[];
 }

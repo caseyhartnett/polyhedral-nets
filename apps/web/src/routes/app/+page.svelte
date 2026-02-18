@@ -21,15 +21,17 @@
   import type {
     CanonicalGeometry,
     ExportFormat,
+    JohnsonSolidId,
     PolyhedronDefinition,
     PolyhedronPreset,
     ShapeDefinition,
     SvgLayer,
     Units
   } from '@torrify/shared-types';
+  import { JOHNSON_SOLID_CATALOG } from '@torrify/shared-types';
 
   type ShapeBuilderMode = 'legacy' | 'polyhedron';
-  type PolyhedronInputMode = 'catalog' | 'family';
+  type PolyhedronInputMode = 'catalog' | 'johnson' | 'family';
   type PolyhedronFamilyPreset = 'regularPrism' | 'regularAntiprism' | 'regularBipyramid';
   type MaterialPreset = 'paper' | 'slabClay' | 'board';
   type TourTarget = 'builder' | 'fabrication' | 'preview' | 'help';
@@ -49,6 +51,13 @@
     minSides: number;
     maxSides: number;
     defaultSides: number;
+  }
+
+  interface JohnsonSelectOption {
+    id: JohnsonSolidId;
+    index: number;
+    name: string;
+    family: string;
   }
 
   interface HelpItem {
@@ -182,7 +191,8 @@
     'truncatedOctahedron',
     'regularPrism',
     'regularAntiprism',
-    'regularBipyramid'
+    'regularBipyramid',
+    'johnson'
   ];
 
   const POLYHEDRON_CATALOG_OPTIONS: PolyhedronCatalogOption[] = [
@@ -285,7 +295,8 @@
     preset: 'cube',
     edgeLength: 60,
     faceMode: 'uniform',
-    ringSides: 6
+    ringSides: 6,
+    johnsonId: 'j1'
   };
 
   const initialShapeDefinition: ShapeDefinition = {
@@ -311,6 +322,8 @@
   let builderMode: ShapeBuilderMode = 'legacy';
   let polyhedronInputMode: PolyhedronInputMode = 'catalog';
   let selectedCatalogKey = 'cube';
+  let selectedJohnsonId: JohnsonSolidId = 'j1';
+  let johnsonQuery = '';
   let selectedFamilyPreset: PolyhedronFamilyPreset = 'regularPrism';
   let useSplitEdges = false;
 
@@ -372,6 +385,19 @@
   $: activeFamily = isFamilyPreset(normalizedPolyhedron.preset)
     ? familyOptionForPreset(normalizedPolyhedron.preset)
     : null;
+  $: johnsonOptions = JOHNSON_SOLID_CATALOG as JohnsonSelectOption[];
+  $: filteredJohnsonOptions = johnsonOptions.filter((option) => {
+    const query = johnsonQuery.trim().toLowerCase();
+    if (!query) {
+      return true;
+    }
+    return (
+      option.id.includes(query) ||
+      `j${option.index}`.includes(query) ||
+      option.name.toLowerCase().includes(query) ||
+      option.family.toLowerCase().includes(query)
+    );
+  });
   $: resolvedShapeDefinition = {
     ...shapeDefinition,
     generationMode: builderMode,
@@ -467,6 +493,9 @@
     preset: PolyhedronPreset,
     ringSides: number
   ): PolyhedronDefinition['faceMode'] {
+    if (preset === 'johnson') {
+      return 'mixed';
+    }
     if (preset === 'cuboctahedron' || preset === 'truncatedOctahedron') {
       return 'mixed';
     }
@@ -484,12 +513,19 @@
     const preset = POLYHEDRON_ALL_PRESETS.includes((merged.preset as PolyhedronPreset) ?? 'cube')
       ? (merged.preset as PolyhedronPreset)
       : 'cube';
+    const johnsonId = (
+      typeof merged.johnsonId === 'string' &&
+      /^j([1-9]|[1-8][0-9]|9[0-2])$/i.test(merged.johnsonId)
+        ? merged.johnsonId.toLowerCase()
+        : initialPolyhedron.johnsonId
+    ) as JohnsonSolidId;
     const ringSides = clampSidesForPreset(preset, merged.ringSides);
     return {
       preset,
       edgeLength: Math.max(1, Number(merged.edgeLength) || initialPolyhedron.edgeLength),
       faceMode: deriveFaceMode(preset, ringSides),
-      ringSides: isFamilyPreset(preset) ? ringSides : undefined
+      ringSides: isFamilyPreset(preset) ? ringSides : undefined,
+      johnsonId: preset === 'johnson' ? johnsonId : undefined
     };
   }
 
@@ -721,6 +757,12 @@
 
   function syncPolyhedronUiState(polyhedron?: Partial<PolyhedronDefinition>): void {
     const normalized = normalizePolyhedron(polyhedron);
+    if (normalized.preset === 'johnson') {
+      polyhedronInputMode = 'johnson';
+      selectedJohnsonId = normalized.johnsonId ?? 'j1';
+      return;
+    }
+
     const match = POLYHEDRON_CATALOG_OPTIONS.find(
       (option) =>
         option.preset === normalized.preset &&
@@ -741,6 +783,19 @@
 
     polyhedronInputMode = 'catalog';
     selectedCatalogKey = 'cube';
+  }
+
+  function applyJohnsonSelection(id: JohnsonSolidId): void {
+    selectedJohnsonId = id;
+    polyhedronInputMode = 'johnson';
+    shapeDefinition = {
+      ...shapeDefinition,
+      polyhedron: normalizePolyhedron({
+        ...shapeDefinition.polyhedron,
+        preset: 'johnson',
+        johnsonId: id
+      })
+    };
   }
 
   function applyCatalogSelection(key: string): void {
@@ -1406,6 +1461,19 @@
           <button
             type="button"
             class="small"
+            class:tab-active={polyhedronInputMode === 'johnson'}
+            on:click={() => {
+              polyhedronInputMode = 'johnson';
+              if (normalizedPolyhedron.preset !== 'johnson') {
+                applyJohnsonSelection(selectedJohnsonId);
+              }
+            }}
+          >
+            Johnson
+          </button>
+          <button
+            type="button"
+            class="small"
             class:tab-active={polyhedronInputMode === 'family'}
             on:click={() => {
               polyhedronInputMode = 'family';
@@ -1432,6 +1500,31 @@
             >
               {#each POLYHEDRON_CATALOG_OPTIONS as option}
                 <option value={option.key}>{option.label} ({option.faces})</option>
+              {/each}
+            </select>
+          </label>
+        {:else if polyhedronInputMode === 'johnson'}
+          <label>
+            <span class="field-title"
+              >Search Johnson Solids
+              <span class="tip" title="Filter by J-number, name, or family.">?</span></span
+            >
+            <input type="text" bind:value={johnsonQuery} placeholder="j17, cupola, pyramid..." />
+          </label>
+          <label>
+            <span class="field-title"
+              >Johnson Solid
+              <span class="tip" title="Canonical list of J1 through J92.">?</span></span
+            >
+            <select
+              value={selectedJohnsonId}
+              on:change={(event) =>
+                applyJohnsonSelection((event.currentTarget as HTMLSelectElement).value as JohnsonSolidId)}
+            >
+              {#each filteredJohnsonOptions as option}
+                <option value={option.id}>
+                  J{option.index} - {option.name} ({option.family.replaceAll('_', ' ')})
+                </option>
               {/each}
             </select>
           </label>
@@ -1518,7 +1611,10 @@
         </label>
       </div>
 
-      <p class="muted">Catalog exposes vetted solids. Family mode constrains side counts to valid ranges.</p>
+      <p class="muted">
+        Catalog exposes vetted solids. Johnson lists canonical J1-J92 solids. Family mode constrains side counts to
+        valid ranges.
+      </p>
     {/if}
 
     <div

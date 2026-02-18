@@ -1,12 +1,14 @@
 import type {
   CanonicalGeometry,
   FlattenedTemplate,
+  JohnsonSolidId,
   LayerPath,
   Point2,
   PolyhedronPreset,
   ShapeDefinition,
   SvgLayer
 } from "@torrify/shared-types";
+import { JOHNSON_MESH_DATA } from "./johnson-data.js";
 
 const TWO_PI = Math.PI * 2;
 const EPSILON = 1e-9;
@@ -141,6 +143,12 @@ function validateShapeDefinition(def: ShapeDefinition, counts: SegmentCounts): v
     }
     if (!(def.polyhedron.edgeLength > 0)) {
       throw new Error("Invalid shape: polyhedron edgeLength must be greater than 0");
+    }
+    if (def.polyhedron.preset === "johnson" && !def.polyhedron.johnsonId) {
+      throw new Error("Invalid shape: johnson preset requires johnsonId");
+    }
+    if (def.polyhedron.preset === "johnson" && def.polyhedron.ringSides !== undefined) {
+      throw new Error("Invalid shape: johnson preset does not support ringSides");
     }
     if (
       def.polyhedron.preset === "regularPrism" ||
@@ -1104,7 +1112,57 @@ function buildRegularBipyramidMesh(ringSides: number, edgeLength: number): MeshM
   return { vertices, faces, triangles };
 }
 
+function buildJohnsonMesh(johnsonId: JohnsonSolidId, edgeLength: number): MeshModel {
+  const base = JOHNSON_MESH_DATA[johnsonId];
+  if (!base) {
+    throw new Error(`Unknown Johnson solid id: ${johnsonId}`);
+  }
+
+  const rawVertices = base.vertices.map((v) => vec(v.x, v.y, v.z));
+  const rawFaces = base.faces.map((indices) => [...indices]);
+
+  // Preserve source adjacency and scale so the first face edge matches requested edge length.
+  const firstFace = rawFaces.find((face) => face.length >= 3);
+  if (!firstFace) {
+    throw new Error(`Johnson solid ${johnsonId.toUpperCase()} has no polygon faces`);
+  }
+  const a = rawVertices[firstFace[0]];
+  const b = rawVertices[firstFace[1]];
+  const baseEdge = edgeLength3D(a, b);
+  if (!(baseEdge > EPSILON)) {
+    throw new Error(`Johnson solid ${johnsonId.toUpperCase()} has degenerate edge data`);
+  }
+
+  const scale = edgeLength / baseEdge;
+  const vertices = rawVertices.map((v) => scaleVec(v, scale));
+  const faces: Face3D[] = rawFaces.map((indices, id) => {
+    const pivot = rawVertices[indices[0]];
+    let normal: Vec3 | undefined;
+    for (let i = 1; i < indices.length - 1 && !normal; i += 1) {
+      for (let j = i + 1; j < indices.length && !normal; j += 1) {
+        const a = subVec(rawVertices[indices[i]], pivot);
+        const b = subVec(rawVertices[indices[j]], pivot);
+        const candidate = cross(a, b);
+        if (Math.sqrt(candidate.x * candidate.x + candidate.y * candidate.y + candidate.z * candidate.z) > EPSILON) {
+          normal = candidate;
+        }
+      }
+    }
+    const ordered = sortFaceVertices(vertices, indices, normal ?? vec(0, 0, 1));
+    return {
+      id,
+      kind: "poly",
+      vertexIndices: ordered
+    };
+  });
+  const triangles = faces.flatMap((face) => triangulateFace(face));
+  return { vertices, faces, triangles };
+}
+
 function buildPolyhedronMesh(preset: PolyhedronPreset, edgeLength: number, ringSides?: number): MeshModel {
+  if (preset === "johnson") {
+    throw new Error("Invalid polyhedron preset: johnson mesh requires johnsonId");
+  }
   if (preset === "regularPrism") {
     return buildRegularPrismMesh(ringSides ?? 6, edgeLength);
   }
@@ -1555,7 +1613,11 @@ function buildWarnings(def: ShapeDefinition): string[] {
   if (def.thickness >= def.bottomWidth / 2) {
     warnings.push("thickness is high relative to base radius; fabrication may be difficult");
   }
-  if (def.generationMode === "polyhedron" && def.polyhedron?.faceMode === "mixed") {
+  if (
+    def.generationMode === "polyhedron" &&
+    def.polyhedron?.faceMode === "mixed" &&
+    def.polyhedron.preset !== "johnson"
+  ) {
     warnings.push("Mixed-face polyhedron presets are experimental and may need manual net adjustments");
   }
 
@@ -1573,7 +1635,10 @@ export function buildShapeDebugModel(def: ShapeDefinition): ShapeDebugModel {
       throw new Error("Invalid shape: polyhedron definition missing");
     }
 
-    const mesh = buildPolyhedronMesh(polyhedron.preset, polyhedron.edgeLength, polyhedron.ringSides);
+    const mesh =
+      polyhedron.preset === "johnson"
+        ? buildJohnsonMesh(polyhedron.johnsonId!, polyhedron.edgeLength)
+        : buildPolyhedronMesh(polyhedron.preset, polyhedron.edgeLength, polyhedron.ringSides);
     const net = buildPolyhedronNet(mesh);
     const rawPaths = buildTemplatePathsFromNet(net, { mode: def.seamMode, allowance: def.allowance });
     const normalizedPaths = normalizePaths(rawPaths, 10);

@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  JOHNSON_SOLID_CATALOG,
+  JOHNSON_SOLID_IDS,
+  type JohnsonSolidCatalogEntry,
+  type JohnsonSolidFamily,
+  type JohnsonSolidId
+} from "./johnson-solids.js";
 
 export const UnitsSchema = z.enum(["mm", "in"]);
 export type Units = z.infer<typeof UnitsSchema>;
@@ -16,9 +23,14 @@ export const PolyhedronPresetSchema = z.enum([
   "truncatedOctahedron",
   "regularPrism",
   "regularAntiprism",
-  "regularBipyramid"
+  "regularBipyramid",
+  "johnson"
 ]);
 export type PolyhedronPreset = z.infer<typeof PolyhedronPresetSchema>;
+
+export const JohnsonSolidIdSchema = z.enum(JOHNSON_SOLID_IDS);
+export type { JohnsonSolidId, JohnsonSolidFamily, JohnsonSolidCatalogEntry };
+export { JOHNSON_SOLID_CATALOG };
 
 export const PolyhedronFaceModeSchema = z.enum(["uniform", "mixed"]);
 export type PolyhedronFaceMode = z.infer<typeof PolyhedronFaceModeSchema>;
@@ -28,7 +40,8 @@ export const PolyhedronDefinitionSchema = z
     preset: PolyhedronPresetSchema,
     edgeLength: z.number().positive().max(10000),
     faceMode: PolyhedronFaceModeSchema.default("uniform"),
-    ringSides: z.number().int().min(3).max(64).optional()
+    ringSides: z.number().int().min(3).max(64).optional(),
+    johnsonId: JohnsonSolidIdSchema.optional()
   })
   .strict();
 export type PolyhedronDefinition = z.infer<typeof PolyhedronDefinitionSchema>;
@@ -91,6 +104,25 @@ export const ShapeDefinitionSchema = z
 
       const mixedPresets = new Set(["cuboctahedron", "truncatedOctahedron"]);
       const familyPresets = new Set(["regularPrism", "regularAntiprism", "regularBipyramid"]);
+
+      if (shape.polyhedron.preset === "johnson") {
+        if (!shape.polyhedron.johnsonId) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["polyhedron", "johnsonId"],
+            message: "Preset johnson requires johnsonId (j1-j92)"
+          });
+        }
+
+        if (shape.polyhedron.ringSides !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["polyhedron", "ringSides"],
+            message: "Preset johnson does not support ringSides"
+          });
+        }
+        return;
+      }
 
       const ringSides = shape.polyhedron.ringSides ?? 0;
       if (familyPresets.has(shape.polyhedron.preset)) {
@@ -193,3 +225,5 @@ export const CanonicalGeometrySchema = z
   .strict();
 
 export type CanonicalGeometry = z.infer<typeof CanonicalGeometrySchema>;
+
+export { JOHNSON_SOLID_IDS, getJohnsonSolidById } from "./johnson-solids.js";

@@ -461,6 +461,31 @@ function makePolyhedronShape(
   });
 }
 
+function makeJohnsonShape(id: `j${number}`, edgeLength = 42): ShapeDefinition {
+  return ShapeDefinitionSchema.parse({
+    schemaVersion: "1.0",
+    height: 120,
+    bottomWidth: 80,
+    topWidth: 80,
+    thickness: 4,
+    units: "mm",
+    seamMode: "straight",
+    allowance: 0,
+    notches: [],
+    profilePoints: [],
+    generationMode: "polyhedron",
+    polyhedron: {
+      preset: "johnson",
+      johnsonId: id,
+      edgeLength,
+      faceMode: "mixed"
+    },
+    segments: 6,
+    bottomSegments: 6,
+    topSegments: 6
+  });
+}
+
 const GOLDEN_CASES: Array<{ name: string; shape: ShapeDefinition }> = [
   {
     name: "box-n4",
@@ -596,6 +621,34 @@ test("regular pentagonal bipyramid carries only triangular faces", () => {
 
   assert.equal(faceSizes.length, 10, "regular pentagonal bipyramid should include 10 faces");
   assert.equal(faceSizes.filter((size) => size === 3).length, 10, "regular pentagonal bipyramid faces should all be triangles");
+});
+
+test("johnson J1 and J2 generate valid polyhedron meshes and nets", () => {
+  const squarePyramid = buildShapeDebugModel(makeJohnsonShape("j1", 30));
+  const pentagonalPyramid = buildShapeDebugModel(makeJohnsonShape("j2", 30));
+
+  assert.equal(squarePyramid.kind, "polyhedron");
+  assert.equal(squarePyramid.mesh.faces.length, 5, "J1 should have 5 faces");
+  assert.equal(squarePyramid.net.faces.length, squarePyramid.mesh.faces.length, "J1 net/mesh mismatch");
+
+  assert.equal(pentagonalPyramid.kind, "polyhedron");
+  assert.equal(pentagonalPyramid.mesh.faces.length, 6, "J2 should have 6 faces");
+  assert.equal(pentagonalPyramid.net.faces.length, pentagonalPyramid.mesh.faces.length, "J2 net/mesh mismatch");
+});
+
+test("all johnson solids J1-J92 generate valid meshes and nets", () => {
+  for (let i = 1; i <= 92; i += 1) {
+    const id = `j${i}` as const;
+    const shape = buildShapeDebugModel(makeJohnsonShape(id, 30));
+    assert.equal(shape.kind, "polyhedron", `${id} should produce polyhedron kind`);
+    assert.ok(shape.mesh.faces.length >= 4, `${id} should have at least 4 faces`);
+    assert.equal(shape.net.faces.length, shape.mesh.faces.length, `${id} net/mesh face count mismatch`);
+
+    const incidence = meshEdgeIncidence(shape.mesh);
+    for (const [edge, faceIds] of incidence.entries()) {
+      assert.equal(faceIds.length, 2, `${id} edge ${edge} should be shared by exactly 2 faces`);
+    }
+  }
 });
 
 test("polyhedron unfolding is deterministic for repeated identical inputs", () => {
