@@ -1,26 +1,42 @@
 <script lang="ts">
-  import JSZip from 'jszip';
   import { onDestroy, onMount } from 'svelte';
   import { buildTemplatePreview, buildSolidPreview } from '$lib/preview';
+  import { MATERIAL_SIZE_PRESET_OPTIONS, availableArtifactFormats, artifactFileName, artifactMimeType } from '$lib/export-contracts';
   import {
-    MATERIAL_SIZE_PRESET_OPTIONS,
-    availableArtifactFormats,
-    artifactFileName,
-    artifactMimeType,
-    filterTemplateLayers,
-    generateExportArtifacts
-  } from '$lib/exports';
+    buildSheetGuideOverlayForPaths,
+    buildSheetGuideOverlayFromBounds,
+    convertUnits,
+    resolveSheetSizeForLayout,
+    type SheetGuideOverlay
+  } from '$lib/sheet-guides';
+  import { assessGenerationComplexity } from '$lib/performance-guard';
+  import {
+    HELP_ITEMS,
+    MATERIAL_PRESET_CONTENT,
+    TOUR_STEPS,
+    TROUBLESHOOTING,
+    type MaterialPreset,
+    type PolyhedronFamilyPreset,
+    type PolyhedronInputMode,
+    type ShapeBuilderMode,
+    type TourTarget
+  } from '$lib/app-content';
+  import {
+    collectGeneratedOutputFiles,
+    countGeneratedDownloadFiles,
+    type DownloadableOutputFile
+  } from '$lib/generated-files';
   import type {
     ExportSheetLayoutOptions,
     GeneratedSvgPage,
     MaterialSizePreset,
     SvgPerforationOptions
-  } from '$lib/exports';
-  import { renderTemplateSvg } from '@torrify/geometry-engine';
+  } from '$lib/export-contracts';
   import { clampInt, toggleExportFormat, toggleSvgLayerSelection } from '$lib/form-state';
   import type {
     CanonicalGeometry,
     ExportFormat,
+    JohnsonSolidCatalogEntry,
     JohnsonSolidId,
     PolyhedronDefinition,
     PolyhedronPreset,
@@ -28,13 +44,6 @@
     SvgLayer,
     Units
   } from '@torrify/shared-types';
-  import { JOHNSON_SOLID_CATALOG } from '@torrify/shared-types';
-
-  type ShapeBuilderMode = 'legacy' | 'polyhedron';
-  type PolyhedronInputMode = 'catalog' | 'johnson' | 'family';
-  type PolyhedronFamilyPreset = 'regularPrism' | 'regularAntiprism' | 'regularBipyramid';
-  type MaterialPreset = 'paper' | 'slabClay' | 'board';
-  type TourTarget = 'builder' | 'fabrication' | 'preview' | 'help';
 
   interface PolyhedronCatalogOption {
     key: string;
@@ -60,126 +69,29 @@
     family: string;
   }
 
-  interface HelpItem {
-    term: string;
-    description: string;
-    tags: string[];
-  }
-
-  interface TourStep {
-    target: TourTarget;
-    title: string;
-    detail: string;
-  }
-
-  interface DownloadableOutputFile {
-    fileName: string;
-    mimeType: string;
-    content: string;
-  }
-
-  interface SheetGuideOverlay {
-    cols: number;
-    rows: number;
-    vertical: number[];
-    horizontal: number[];
-  }
-
   type GeneratedSvgPreviewMode = 'combined' | 'sheets';
-
-  const MM_PER_INCH = 25.4;
+  type ExportModule = typeof import('$lib/exports');
+  type GeometryEngineModule = typeof import('@torrify/geometry-engine');
 
   const ONBOARDING_SEEN_KEY = 'pgw_onboarding_seen';
+  let exportModulePromise: Promise<ExportModule> | null = null;
+  let geometryModulePromise: Promise<GeometryEngineModule> | null = null;
 
-  const HELP_ITEMS: HelpItem[] = [
-    {
-      term: 'Segments',
-      description: 'How many sides your form has around the base. More sides makes a rounder result.',
-      tags: ['edges', 'shape', 'legacy']
-    },
-    {
-      term: 'Allowance',
-      description: 'Extra edge material added for joining pieces. Increase if your seam needs more overlap.',
-      tags: ['join', 'seam', 'fabrication']
-    },
-    {
-      term: 'Seam mode',
-      description: 'How the joining edge is built: straight, overlap, or tabbed.',
-      tags: ['join', 'tab', 'glue']
-    },
-    {
-      term: 'Face edge length',
-      description: 'The size of each polyhedron edge. Larger values scale the whole template up.',
-      tags: ['polyhedron', 'size']
-    },
-    {
-      term: 'Score layer',
-      description: 'Fold lines that should be lightly scored, not fully cut.',
-      tags: ['layers', 'cutting']
-    },
-    {
-      term: 'Guide layer',
-      description: 'Reference lines for alignment and layout checks.',
-      tags: ['layers', 'reference']
+  function loadExportModule(): Promise<ExportModule> {
+    // Defer heavy export pipeline code until the user actually generates files.
+    if (!exportModulePromise) {
+      exportModulePromise = import('$lib/exports');
     }
-  ];
+    return exportModulePromise;
+  }
 
-  const TROUBLESHOOTING: string[] = [
-    'If warnings appear, increase allowance or reduce extreme taper differences.',
-    'If folds tear, increase thickness for stronger material settings.',
-    'If shape is too complex, start with fewer segments and iterate upward.',
-    'If export does not look right in another tool, try SVG first.'
-  ];
-
-  const TOUR_STEPS: TourStep[] = [
-    {
-      target: 'builder',
-      title: 'Choose a build path',
-      detail: 'Pick Dimension Builder for pots and frustums, or Polyhedron Templates for geometric solids.'
-    },
-    {
-      target: 'fabrication',
-      title: 'Set fabrication rules',
-      detail: 'Thickness, seam mode, and allowance directly affect assembly fit.'
-    },
-    {
-      target: 'preview',
-      title: 'Validate shape before export',
-      detail: 'Use the 2D net and 3D preview to catch mistakes early.'
-    },
-    {
-      target: 'help',
-      title: 'Use built-in support',
-      detail: 'Search terms, apply recipes, and follow troubleshooting tips without leaving the app.'
+  function loadGeometryModule(): Promise<GeometryEngineModule> {
+    // Keep initial route load lighter by lazily loading render helpers.
+    if (!geometryModulePromise) {
+      geometryModulePromise = import('@torrify/geometry-engine');
     }
-  ];
-
-  const MATERIAL_PRESET_CONTENT: Record<
-    MaterialPreset,
-    { label: string; note: string; thickness: number; allowance: number; seamMode: ShapeDefinition['seamMode'] }
-  > = {
-    paper: {
-      label: 'Paper Prototype',
-      note: 'Fast, easy fold testing before final fabrication.',
-      thickness: 1,
-      allowance: 4,
-      seamMode: 'tabbed'
-    },
-    slabClay: {
-      label: 'Slab Clay',
-      note: 'Balanced defaults for ceramic slab construction.',
-      thickness: 6,
-      allowance: 8,
-      seamMode: 'straight'
-    },
-    board: {
-      label: 'Thick Board/Card',
-      note: 'More allowance for stiffer material joins.',
-      thickness: 2.5,
-      allowance: 7,
-      seamMode: 'overlap'
-    }
-  };
+    return geometryModulePromise;
+  }
 
   const POLYHEDRON_ALL_PRESETS: PolyhedronPreset[] = [
     'tetrahedron',
@@ -324,6 +236,7 @@
   let selectedCatalogKey = 'cube';
   let selectedJohnsonId: JohnsonSolidId = 'j1';
   let johnsonQuery = '';
+  let johnsonOptions: JohnsonSelectOption[] = [];
   let selectedFamilyPreset: PolyhedronFamilyPreset = 'regularPrism';
   let useSplitEdges = false;
 
@@ -354,6 +267,8 @@
   let svgPreviewUrl = '';
 
   let exportSuccess = '';
+  let generationNotice = '';
+  let generationOverrideArmed = false;
   let showWarningHelp = false;
   let helpQuery = '';
 
@@ -385,7 +300,6 @@
   $: activeFamily = isFamilyPreset(normalizedPolyhedron.preset)
     ? familyOptionForPreset(normalizedPolyhedron.preset)
     : null;
-  $: johnsonOptions = JOHNSON_SOLID_CATALOG as JohnsonSelectOption[];
   $: filteredJohnsonOptions = johnsonOptions.filter((option) => {
     const query = johnsonQuery.trim().toLowerCase();
     if (!query) {
@@ -423,7 +337,16 @@
   $: effectiveTopSegments = resolvedShapeDefinition.topSegments;
   $: generatedSvgSheetPages = generatedSvgPages.filter((page) => page.kind === 'sheet');
   $: generatedSvgSheetCount = generatedSvgSheetPages.length;
-  $: totalGeneratedDownloadFileCount = countGeneratedDownloadFiles();
+  $: totalGeneratedDownloadFileCount = countGeneratedDownloadFiles(
+    generatedArtifacts,
+    generatedSvgPages
+  );
+  $: if (
+    !assessGenerationComplexity(resolvedShapeDefinition, materialSizePreset, optimizeSheetPacking)
+  ) {
+    generationOverrideArmed = false;
+    generationNotice = '';
+  }
   $: selectedMaterialPresetOption =
     MATERIAL_SIZE_PRESET_OPTIONS.find((option) => option.value === materialSizePreset) ??
     MATERIAL_SIZE_PRESET_OPTIONS[0];
@@ -443,7 +366,18 @@
   });
   $: activeTourStep = TOUR_STEPS[tourStepIndex];
 
+  async function hydrateJohnsonCatalog(): Promise<void> {
+    const module = await import('@torrify/shared-types');
+    johnsonOptions = (module.JOHNSON_SOLID_CATALOG as JohnsonSolidCatalogEntry[]).map((entry) => ({
+      id: entry.id,
+      index: entry.index,
+      name: entry.name,
+      family: entry.family
+    }));
+  }
+
   onMount(() => {
+    void hydrateJohnsonCatalog();
     const params = new URLSearchParams(window.location.search);
     const forceGuided = params.get('start') === 'guided';
     const forceTour = params.get('tour') === '1';
@@ -529,18 +463,6 @@
     };
   }
 
-  function convertUnits(value: number, from: Units, to: Units): number {
-    if (from === to) {
-      return value;
-    }
-
-    if (from === 'in' && to === 'mm') {
-      return value * MM_PER_INCH;
-    }
-
-    return value / MM_PER_INCH;
-  }
-
   function resolvePreviewSheetSize(units: Units): { width: number; height: number } | undefined {
     return resolveSheetSizeForLayout(
       {
@@ -554,41 +476,9 @@
               }
             : undefined
       },
-      units
+      units,
+      MATERIAL_SIZE_PRESET_OPTIONS
     );
-  }
-
-  function resolveSheetSizeForLayout(
-    layout: Pick<ExportSheetLayoutOptions, 'materialSizePreset' | 'customSize'> | undefined,
-    units: Units
-  ): { width: number; height: number } | undefined {
-    if (!layout || layout.materialSizePreset === 'none') {
-      return undefined;
-    }
-
-    if (layout.materialSizePreset === 'custom') {
-      const custom = layout.customSize;
-      if (!custom || !(custom.width > 0) || !(custom.height > 0)) {
-        return undefined;
-      }
-
-      return {
-        width: convertUnits(custom.width, custom.units, units),
-        height: convertUnits(custom.height, custom.units, units)
-      };
-    }
-
-    const preset = MATERIAL_SIZE_PRESET_OPTIONS.find(
-      (option) => option.value === layout.materialSizePreset
-    );
-    if (!preset || !preset.width || !preset.height || !preset.units) {
-      return undefined;
-    }
-
-    return {
-      width: convertUnits(preset.width, preset.units, units),
-      height: convertUnits(preset.height, preset.units, units)
-    };
   }
 
   function buildPreviewSheetGuides(): SheetGuideOverlay | undefined {
@@ -596,39 +486,7 @@
     if (!sheetSize) {
       return undefined;
     }
-
-    const margin = Math.min(
-      convertUnits(8, 'mm', liveTemplate.units),
-      sheetSize.width * 0.2,
-      sheetSize.height * 0.2
-    );
-    const usableWidth = sheetSize.width - margin * 2;
-    const usableHeight = sheetSize.height - margin * 2;
-    if (usableWidth <= 0 || usableHeight <= 0) {
-      return undefined;
-    }
-
-    const contentWidth = liveTemplate.bounds.maxX - liveTemplate.bounds.minX;
-    const contentHeight = liveTemplate.bounds.maxY - liveTemplate.bounds.minY;
-    const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
-    const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
-
-    const vertical: number[] = [];
-    for (let col = 1; col < cols; col += 1) {
-      vertical.push(Math.min(liveTemplate.bounds.maxX, liveTemplate.bounds.minX + col * usableWidth));
-    }
-
-    const horizontal: number[] = [];
-    for (let row = 1; row < rows; row += 1) {
-      horizontal.push(Math.min(liveTemplate.bounds.maxY, liveTemplate.bounds.minY + row * usableHeight));
-    }
-
-    return {
-      cols,
-      rows,
-      vertical,
-      horizontal
-    };
+    return buildSheetGuideOverlayFromBounds(liveTemplate.bounds, liveTemplate.units, sheetSize);
   }
 
   function buildSheetGuidesForPaths(
@@ -636,59 +494,34 @@
     units: Units,
     layout: Pick<ExportSheetLayoutOptions, 'materialSizePreset' | 'customSize'> | undefined
   ): SheetGuideOverlay | undefined {
-    const sheetSize = resolveSheetSizeForLayout(layout, units);
-    if (!sheetSize) {
-      return undefined;
-    }
-
-    const allPoints = paths.flatMap((path) => path.points);
-    if (allPoints.length === 0) {
-      return undefined;
-    }
-
-    const xs = allPoints.map((point) => point.x);
-    const ys = allPoints.map((point) => point.y);
-    const bounds = {
-      minX: Math.min(...xs),
-      minY: Math.min(...ys),
-      maxX: Math.max(...xs),
-      maxY: Math.max(...ys)
-    };
-
-    const margin = Math.min(convertUnits(8, 'mm', units), sheetSize.width * 0.2, sheetSize.height * 0.2);
-    const usableWidth = sheetSize.width - margin * 2;
-    const usableHeight = sheetSize.height - margin * 2;
-    if (usableWidth <= 0 || usableHeight <= 0) {
-      return undefined;
-    }
-
-    const contentWidth = bounds.maxX - bounds.minX;
-    const contentHeight = bounds.maxY - bounds.minY;
-    const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
-    const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
-
-    const vertical: number[] = [];
-    for (let col = 1; col < cols; col += 1) {
-      vertical.push(Math.min(bounds.maxX, bounds.minX + col * usableWidth));
-    }
-
-    const horizontal: number[] = [];
-    for (let row = 1; row < rows; row += 1) {
-      horizontal.push(Math.min(bounds.maxY, bounds.minY + row * usableHeight));
-    }
-
-    return { cols, rows, vertical, horizontal };
+    return buildSheetGuideOverlayForPaths(paths, units, layout, MATERIAL_SIZE_PRESET_OPTIONS);
   }
 
-  function buildCombinedGeneratedSvgPreview(): string | undefined {
+  function filterTemplateLayersLocal(geometry: CanonicalGeometry, layers: SvgLayer[]): CanonicalGeometry {
+    if (!layers.length) {
+      return geometry;
+    }
+
+    const allowed = new Set(layers);
+    return {
+      ...geometry,
+      template: {
+        ...geometry.template,
+        paths: geometry.template.paths.filter((path) => allowed.has(path.layer))
+      }
+    };
+  }
+
+  async function buildCombinedGeneratedSvgPreview(): Promise<string | undefined> {
     if (!generatedGeometry) {
       return undefined;
     }
 
-    const layeredGeometry = filterTemplateLayers(
+    const layeredGeometry = filterTemplateLayersLocal(
       generatedGeometry,
       generatedSvgLayerSnapshot.length > 0 ? generatedSvgLayerSnapshot : ['cut', 'score', 'guide']
     );
+    const { renderTemplateSvg } = await loadGeometryModule();
     const baseSvg = renderTemplateSvg(layeredGeometry);
 
     const allPoints = layeredGeometry.template.paths.flatMap((path) => path.points);
@@ -733,10 +566,10 @@
     return baseSvg.replace('</svg>', `${guideGroup}</svg>`);
   }
 
-  function refreshGeneratedSvgPreview(): void {
+  async function refreshGeneratedSvgPreview(): Promise<void> {
     const generatedSheetCount = generatedSvgPages.filter((page) => page.kind === 'sheet').length;
     if (generatedSheetCount > 1 && generatedSvgPreviewMode === 'combined') {
-      updateSvgPreview(buildCombinedGeneratedSvgPreview());
+      updateSvgPreview(await buildCombinedGeneratedSvgPreview());
       return;
     }
 
@@ -752,7 +585,7 @@
 
   function setGeneratedSvgPreviewMode(mode: GeneratedSvgPreviewMode): void {
     generatedSvgPreviewMode = mode;
-    refreshGeneratedSvgPreview();
+    void refreshGeneratedSvgPreview();
   }
 
   function syncPolyhedronUiState(polyhedron?: Partial<PolyhedronDefinition>): void {
@@ -949,7 +782,7 @@
   function previewGeneratedSvgSheet(index: number): void {
     generatedSvgPreviewMode = 'sheets';
     generatedSvgPreviewSheetIndex = Math.max(0, Math.min(generatedSvgPages.length - 1, index));
-    refreshGeneratedSvgPreview();
+    void refreshGeneratedSvgPreview();
   }
 
   function downloadBlob(blob: Blob, fileName: string): void {
@@ -961,61 +794,6 @@
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-  }
-
-  function countGeneratedDownloadFiles(): number {
-    let count = 0;
-    if (generatedArtifacts.svg) {
-      count += generatedSvgPages.length > 0 ? generatedSvgPages.length : 1;
-    }
-    if (generatedArtifacts.pdf) count += 1;
-    if (generatedArtifacts.stl) count += 1;
-    return count;
-  }
-
-  function collectGeneratedOutputFiles(): DownloadableOutputFile[] {
-    if (!generatedGeometry) {
-      return [];
-    }
-
-    const when = generatedAtDate ?? new Date();
-    const files: DownloadableOutputFile[] = [];
-
-    if (generatedArtifacts.svg) {
-      if (generatedSvgPages.length > 0) {
-        for (const page of generatedSvgPages) {
-          files.push({
-            fileName: artifactFileName('svg', generatedGeometry.kind, when, page.fileNameSuffix),
-            mimeType: artifactMimeType('svg'),
-            content: page.content
-          });
-        }
-      } else {
-        files.push({
-          fileName: artifactFileName('svg', generatedGeometry.kind, when),
-          mimeType: artifactMimeType('svg'),
-          content: generatedArtifacts.svg
-        });
-      }
-    }
-
-    if (generatedArtifacts.pdf) {
-      files.push({
-        fileName: artifactFileName('pdf', generatedGeometry.kind, when),
-        mimeType: artifactMimeType('pdf'),
-        content: generatedArtifacts.pdf
-      });
-    }
-
-    if (generatedArtifacts.stl) {
-      files.push({
-        fileName: artifactFileName('stl', generatedGeometry.kind, when),
-        mimeType: artifactMimeType('stl'),
-        content: generatedArtifacts.stl
-      });
-    }
-
-    return files;
   }
 
   async function downloadOutputAsZip(files: DownloadableOutputFile[]): Promise<void> {
@@ -1031,6 +809,7 @@
       '.zip'
     );
 
+    const { default: JSZip } = await import('jszip');
     const zip = new JSZip();
     const folder = zip.folder(folderName);
     for (const file of files) {
@@ -1046,7 +825,12 @@
   }
 
   async function downloadSelectedAsZip(): Promise<void> {
-    const files = collectGeneratedOutputFiles();
+    const files = collectGeneratedOutputFiles({
+      generatedGeometry,
+      generatedArtifacts,
+      generatedSvgPages,
+      generatedAtDate
+    });
     if (files.length === 0) {
       error = 'Generate files first.';
       return;
@@ -1055,12 +839,28 @@
     await downloadOutputAsZip(files);
   }
 
-  function generateExports(): void {
+  async function generateExports(): Promise<void> {
     error = '';
     exportSuccess = '';
+    generationNotice = '';
+
+    // Two-step confirmation for costly configs prevents accidental expensive runs.
+    const guard = assessGenerationComplexity(
+      resolvedShapeDefinition,
+      materialSizePreset,
+      optimizeSheetPacking
+    );
+    if (guard && !generationOverrideArmed) {
+      generationOverrideArmed = true;
+      generationNotice = guard.message;
+      return;
+    }
+
+    generationOverrideArmed = false;
     generating = true;
 
     try {
+      const exportsApi = await loadExportModule();
       const sheetLayoutOptions: ExportSheetLayoutOptions = {
         materialSizePreset,
         optimizePacking: optimizeSheetPacking,
@@ -1089,7 +889,7 @@
           ? (Array.from(new Set<SvgLayer>([...svgLayers, 'cut', 'score'])) as SvgLayer[])
           : svgLayers;
 
-      const generated = generateExportArtifacts({
+      const generated = exportsApi.generateExportArtifacts({
         shapeDefinition: resolvedShapeDefinition,
         exportFormats,
         svgLayers: exportLayers,
@@ -1107,7 +907,7 @@
       generatedSheetLayoutSnapshot = sheetLayoutOptions;
       generatedAtDate = new Date();
       generatedAt = generatedAtDate.toLocaleString();
-      refreshGeneratedSvgPreview();
+      await refreshGeneratedSvgPreview();
 
       const formats = availableArtifactFormats(generated.artifacts).map((format) => format.toUpperCase());
       const svgSplitNote =
@@ -1119,6 +919,7 @@
           ? ' Assembly guide page included for shard mapping.'
           : '';
       exportSuccess = `Files ready: ${formats.join(', ')}.${svgSplitNote}${assemblyGuideNote} Start by downloading SVG for print testing.`;
+      generationNotice = '';
 
       if (guidedSetupActive) {
         guidedSetupActive = false;
@@ -1136,6 +937,7 @@
       generatedSheetLayoutSnapshot = undefined;
       generatedAtDate = null;
       generatedAt = '';
+      generationNotice = '';
       updateSvgPreview(undefined);
     } finally {
       generating = false;
@@ -1192,7 +994,7 @@
     applyDefaultExportPreset();
     applyFamilyDefaults(onboardingShapeFamily);
     applyMaterialPreset(onboardingMaterialPreset);
-    generateExports();
+    void generateExports();
   }
 
   function restoreSafeDefaults(): void {
@@ -1213,6 +1015,8 @@
     generatedSvgLayerSnapshot = ['cut', 'score', 'guide'];
     generatedSheetLayoutSnapshot = undefined;
     applyDefaultExportPreset();
+    generationOverrideArmed = false;
+    generationNotice = '';
     error = '';
     exportSuccess = 'Safe defaults restored. Generate to see updated files.';
   }
@@ -1221,6 +1025,8 @@
     applyDefaultExportPreset();
     applyFamilyDefaults('legacy');
     applyMaterialPreset('slabClay');
+    generationOverrideArmed = false;
+    generationNotice = '';
     exportSuccess = 'Sample project loaded. Generate files when ready.';
   }
 
@@ -1348,7 +1154,7 @@
 </script>
 
 <svelte:head>
-  <title>OpenPottery Template Maker</title>
+  <title>PolyGoneWild Template Maker</title>
 </svelte:head>
 
 <main>
@@ -1359,7 +1165,7 @@
   >
     <div class="header-row">
       <div>
-        <h1>OpenPottery Template Maker</h1>
+        <h1>PolyGoneWild Template Maker</h1>
         <p class="sub">Guided-first for non-technical users. Session state clears on refresh.</p>
       </div>
       <div class="header-actions">
@@ -1834,8 +1640,18 @@
       </div>
     </div>
 
+    {#if generationNotice}
+      <p class="muted">{generationNotice}</p>
+    {/if}
+
     <button on:click={generateExports} disabled={generating}>
-      {generating ? 'Generating...' : 'Generate Files'}
+      {#if generating}
+        Generating...
+      {:else if generationOverrideArmed}
+        Confirm Heavy Generate
+      {:else}
+        Generate Files
+      {/if}
     </button>
 
     {#if exportSuccess}

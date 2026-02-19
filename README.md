@@ -68,9 +68,13 @@ npm run dev
 
 ```bash
 npm run build
+npm run build:budget
+npm run perf:check
 npm run lint
 npm run typecheck
 npm run test
+npm run docs:check
+npm run test:e2e
 ```
 
 ## Project layout
@@ -86,10 +90,11 @@ npm run test
 - `docs/api-contracts.md` - note on removed API layer
 - `docs/deployment.md` - Cloudflare Pages and Railway deployment setup
 - `docs/improvements-roadmap.md` - prioritized codebase improvements and security checklist
+- `docs/suggested-improvements-2026-02-18.md` - current status review and prioritized improvement actions
 - `docs/release-checklist.md` - release verification and security checks
 - `docs/printability-rules.md` - validation rules and current warnings
+- `docs/data-artifact-policy.md` - policy for local/generated data artifacts and test fixtures
 - `docs/development.md` - local development and test commands
-- `docs/stateless-refactor-plan.md` - archived execution plan for the completed stateless migration
 - `docs/two-face-polyhedra-math.md` - math for two-face polyhedra feasibility and integration approach
 
 ## License

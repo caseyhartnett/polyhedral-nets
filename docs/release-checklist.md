@@ -5,8 +5,15 @@
 1. `npm run lint`
 2. `npm run typecheck`
 3. `npm run test`
-4. `npm run build`
-5. Verify `apps/web/build/index.html` exists
+4. `npm run docs:check`
+5. `npm run build`
+6. `npm run build:budget`
+7. `npm run perf:check`
+8. `npm run test:e2e`
+9. Verify `apps/web/build/index.html` exists
+
+Note:
+- Treat `build:budget` and `perf:check` as release blockers. They are regression guardrails, not informational-only checks.
 
 ## Manual QA
 
