@@ -71,6 +71,10 @@ export interface ExportSheetLayoutOptions {
     height: number;
     units: Units;
   };
+  sheetOffset?: {
+    col: number;
+    row: number;
+  };
   optimizePacking?: boolean;
   allowRotation?: boolean;
   includeAssemblyGuide?: boolean;
@@ -2205,6 +2209,56 @@ interface OrientationScore {
   wastedArea: number;
 }
 
+interface SheetOffset {
+  col: number;
+  row: number;
+}
+
+interface GridTilingFrame {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  cols: number;
+  rows: number;
+}
+
+function resolveSheetOffset(layout: ExportSheetLayoutOptions | undefined): SheetOffset {
+  return {
+    col: Math.round(layout?.sheetOffset?.col ?? 0),
+    row: Math.round(layout?.sheetOffset?.row ?? 0)
+  };
+}
+
+function buildGridTilingFrame(
+  bounds: Bounds,
+  usableWidth: number,
+  usableHeight: number,
+  offset: SheetOffset
+): GridTilingFrame {
+  const originX = bounds.minX - offset.col * usableWidth;
+  const originY = bounds.minY - offset.row * usableHeight;
+
+  const minCol = Math.floor((bounds.minX - originX) / usableWidth + EPSILON);
+  const minRow = Math.floor((bounds.minY - originY) / usableHeight + EPSILON);
+
+  const maxColExclusive = Math.max(minCol + 1, Math.ceil((bounds.maxX - originX) / usableWidth - EPSILON));
+  const maxRowExclusive = Math.max(minRow + 1, Math.ceil((bounds.maxY - originY) / usableHeight - EPSILON));
+  const frameMinCol = Math.min(minCol, minCol - offset.col);
+  const frameMinRow = Math.min(minRow, minRow - offset.row);
+  const frameMaxColExclusive = Math.max(maxColExclusive, maxColExclusive - offset.col);
+  const frameMaxRowExclusive = Math.max(maxRowExclusive, maxRowExclusive - offset.row);
+
+  return {
+    minX: originX + frameMinCol * usableWidth,
+    minY: originY + frameMinRow * usableHeight,
+    maxX: originX + frameMaxColExclusive * usableWidth,
+    maxY: originY + frameMaxRowExclusive * usableHeight,
+    cols: frameMaxColExclusive - frameMinCol,
+    rows: frameMaxRowExclusive - frameMinRow
+  };
+}
+
 function evaluateOrientationScore(
   points: Point2[],
   pivot: Point2,
@@ -2340,18 +2394,18 @@ function buildSvgPagesForLayoutLegacy(
     throw new Error(`Material ${material.label} is too small after margins`);
   }
 
-  const contentWidth = bounds.maxX - bounds.minX;
-  const contentHeight = bounds.maxY - bounds.minY;
-  const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
-  const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+  const offset = resolveSheetOffset(layout);
+  const frame = buildGridTilingFrame(bounds, usableWidth, usableHeight, offset);
+  const cols = frame.cols;
+  const rows = frame.rows;
   const splitTiles: SplitTileCandidate[] = [];
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
-      const tileMinX = bounds.minX + col * usableWidth;
-      const tileMinY = bounds.minY + row * usableHeight;
-      const tileMaxX = Math.min(tileMinX + usableWidth, bounds.maxX);
-      const tileMaxY = Math.min(tileMinY + usableHeight, bounds.maxY);
+      const tileMinX = frame.minX + col * usableWidth;
+      const tileMinY = frame.minY + row * usableHeight;
+      const tileMaxX = Math.min(tileMinX + usableWidth, frame.maxX);
+      const tileMaxY = Math.min(tileMinY + usableHeight, frame.maxY);
 
       const clipRect: Rect = {
         minX: tileMinX,
@@ -2385,10 +2439,10 @@ function buildSvgPagesForLayoutLegacy(
 
   const guideLines = {
     vertical: Array.from({ length: Math.max(0, cols - 1) }, (_value, idx) =>
-      Math.min(bounds.maxX, bounds.minX + (idx + 1) * usableWidth)
+      Math.min(frame.maxX, frame.minX + (idx + 1) * usableWidth)
     ),
     horizontal: Array.from({ length: Math.max(0, rows - 1) }, (_value, idx) =>
-      Math.min(bounds.maxY, bounds.minY + (idx + 1) * usableHeight)
+      Math.min(frame.maxY, frame.minY + (idx + 1) * usableHeight)
     )
   };
 
@@ -2474,15 +2528,15 @@ function buildSvgPagesForLayout(
   const orientation = chooseBestOrientation(geometry, bounds, usableWidth, usableHeight);
   const workingGeometry = orientation.geometry;
   const workingBounds = orientation.bounds;
+  const offset = resolveSheetOffset(layout);
+  const frame = buildGridTilingFrame(workingBounds, usableWidth, usableHeight, offset);
 
   const guideLines = {
-    vertical: Array.from(
-      { length: Math.max(0, Math.ceil((workingBounds.maxX - workingBounds.minX) / usableWidth) - 1) },
-      (_v, i) => Math.min(workingBounds.maxX, workingBounds.minX + (i + 1) * usableWidth)
+    vertical: Array.from({ length: Math.max(0, frame.cols - 1) }, (_v, i) =>
+      Math.min(frame.maxX, frame.minX + (i + 1) * usableWidth)
     ),
-    horizontal: Array.from(
-      { length: Math.max(0, Math.ceil((workingBounds.maxY - workingBounds.minY) / usableHeight) - 1) },
-      (_v, i) => Math.min(workingBounds.maxY, workingBounds.minY + (i + 1) * usableHeight)
+    horizontal: Array.from({ length: Math.max(0, frame.rows - 1) }, (_v, i) =>
+      Math.min(frame.maxY, frame.minY + (i + 1) * usableHeight)
     )
   };
 
@@ -2493,7 +2547,16 @@ function buildSvgPagesForLayout(
     }
 
     const templateInt = scaleToInt(template, SPLIT_PACK_SCALE);
-    const gridTiles = buildGridTileMeta(workingBounds, usableWidth, usableHeight);
+    const gridTiles = buildGridTileMeta(
+      {
+        minX: frame.minX,
+        minY: frame.minY,
+        maxX: frame.maxX,
+        maxY: frame.maxY
+      },
+      usableWidth,
+      usableHeight
+    );
     const gridTilesInt = buildGridTilesInt(gridTiles, SPLIT_PACK_SCALE);
 
     const dimEps = convertUnits(0.1, 'mm', units);

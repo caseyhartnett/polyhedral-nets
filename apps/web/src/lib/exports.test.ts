@@ -257,6 +257,54 @@ test('letter split for oversized cube yields multiple unique svg sheets', () => 
   );
 });
 
+test('sheet offset shifts split grid and preserves that shifted layout in svg pages', () => {
+  const shapeDefinition = makeShape({
+    generationMode: 'polyhedron',
+    polyhedron: {
+      preset: 'cube',
+      edgeLength: 120,
+      faceMode: 'uniform'
+    }
+  });
+
+  const baseline = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter'
+    }
+  });
+
+  const shifted = generateExportArtifacts({
+    shapeDefinition,
+    exportFormats: ['svg'],
+    svgLayers: ['cut', 'score', 'guide'],
+    sheetLayout: {
+      materialSizePreset: 'printer-letter',
+      sheetOffset: {
+        col: 1,
+        row: 0
+      }
+    }
+  });
+
+  const baselineSheets = baseline.svgPages.filter((page) => page.kind === 'sheet');
+  const shiftedSheets = shifted.svgPages.filter((page) => page.kind === 'sheet');
+  assert.equal(baselineSheets.length, 4, 'baseline should remain a 2x2 split');
+  assert.equal(shiftedSheets.length, 6, 'column offset should expand split grid to 3x2');
+  assert.equal(
+    shiftedSheets[0]?.fileNameSuffix,
+    'sheet-r1-c1',
+    'shifted output should still enumerate from first sheet'
+  );
+  assert.equal(
+    /class="cut"/.test(shiftedSheets[0]?.content ?? ''),
+    false,
+    'first shifted sheet should be empty when content is moved right by one column'
+  );
+});
+
 test('optional packing optimization reduces split sheet count for fragmented layouts', () => {
   const shapeDefinition = makeShape({
     generationMode: 'polyhedron',

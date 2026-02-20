@@ -336,6 +336,8 @@
   let optimizeSheetPacking = false;
   let allowPackingRotation = true;
   let includeAssemblyGuide = true;
+  let sheetOffsetCol = 0;
+  let sheetOffsetRow = 0;
   let cricutPerforationEnabled = true;
   let cricutPerforationCutLength = 0.8;
   let cricutPerforationGapLength = 0.8;
@@ -608,19 +610,23 @@
       return undefined;
     }
 
-    const contentWidth = liveTemplate.bounds.maxX - liveTemplate.bounds.minX;
-    const contentHeight = liveTemplate.bounds.maxY - liveTemplate.bounds.minY;
-    const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
-    const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+    const frame = buildGridFrame(
+      liveTemplate.bounds,
+      usableWidth,
+      usableHeight,
+      resolveSheetOffset({ sheetOffset: { col: sheetOffsetCol, row: sheetOffsetRow } })
+    );
+    const cols = frame.cols;
+    const rows = frame.rows;
 
     const vertical: number[] = [];
     for (let col = 1; col < cols; col += 1) {
-      vertical.push(Math.min(liveTemplate.bounds.maxX, liveTemplate.bounds.minX + col * usableWidth));
+      vertical.push(Math.min(frame.maxX, frame.minX + col * usableWidth));
     }
 
     const horizontal: number[] = [];
     for (let row = 1; row < rows; row += 1) {
-      horizontal.push(Math.min(liveTemplate.bounds.maxY, liveTemplate.bounds.minY + row * usableHeight));
+      horizontal.push(Math.min(frame.maxY, frame.minY + row * usableHeight));
     }
 
     return {
@@ -634,7 +640,7 @@
   function buildSheetGuidesForPaths(
     paths: Array<{ points: Array<{ x: number; y: number }> }>,
     units: Units,
-    layout: Pick<ExportSheetLayoutOptions, 'materialSizePreset' | 'customSize'> | undefined
+    layout: Pick<ExportSheetLayoutOptions, 'materialSizePreset' | 'customSize' | 'sheetOffset'> | undefined
   ): SheetGuideOverlay | undefined {
     const sheetSize = resolveSheetSizeForLayout(layout, units);
     if (!sheetSize) {
@@ -662,19 +668,18 @@
       return undefined;
     }
 
-    const contentWidth = bounds.maxX - bounds.minX;
-    const contentHeight = bounds.maxY - bounds.minY;
-    const cols = Math.max(1, Math.ceil(contentWidth / usableWidth));
-    const rows = Math.max(1, Math.ceil(contentHeight / usableHeight));
+    const frame = buildGridFrame(bounds, usableWidth, usableHeight, resolveSheetOffset(layout));
+    const cols = frame.cols;
+    const rows = frame.rows;
 
     const vertical: number[] = [];
     for (let col = 1; col < cols; col += 1) {
-      vertical.push(Math.min(bounds.maxX, bounds.minX + col * usableWidth));
+      vertical.push(Math.min(frame.maxX, frame.minX + col * usableWidth));
     }
 
     const horizontal: number[] = [];
     for (let row = 1; row < rows; row += 1) {
-      horizontal.push(Math.min(bounds.maxY, bounds.minY + row * usableHeight));
+      horizontal.push(Math.min(frame.maxY, frame.minY + row * usableHeight));
     }
 
     return { cols, rows, vertical, horizontal };
@@ -1063,6 +1068,10 @@
     try {
       const sheetLayoutOptions: ExportSheetLayoutOptions = {
         materialSizePreset,
+        sheetOffset: {
+          col: Math.round(Number(sheetOffsetCol) || 0),
+          row: Math.round(Number(sheetOffsetRow) || 0)
+        },
         optimizePacking: optimizeSheetPacking,
         allowRotation: allowPackingRotation,
         includeAssemblyGuide,
@@ -1147,6 +1156,46 @@
     svgLayers = ['cut', 'score', 'guide'];
   }
 
+  function resolveSheetOffset(
+    layout:
+      | Pick<ExportSheetLayoutOptions, 'sheetOffset'>
+      | undefined
+  ): { col: number; row: number } {
+    return {
+      col: Math.round(layout?.sheetOffset?.col ?? 0),
+      row: Math.round(layout?.sheetOffset?.row ?? 0)
+    };
+  }
+
+  function buildGridFrame(
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    usableWidth: number,
+    usableHeight: number,
+    offset: { col: number; row: number }
+  ): { minX: number; minY: number; maxX: number; maxY: number; cols: number; rows: number } {
+    const originX = bounds.minX - offset.col * usableWidth;
+    const originY = bounds.minY - offset.row * usableHeight;
+    const eps = 1e-9;
+
+    const minCol = Math.floor((bounds.minX - originX) / usableWidth + eps);
+    const minRow = Math.floor((bounds.minY - originY) / usableHeight + eps);
+    const maxColExclusive = Math.max(minCol + 1, Math.ceil((bounds.maxX - originX) / usableWidth - eps));
+    const maxRowExclusive = Math.max(minRow + 1, Math.ceil((bounds.maxY - originY) / usableHeight - eps));
+    const frameMinCol = Math.min(minCol, minCol - offset.col);
+    const frameMinRow = Math.min(minRow, minRow - offset.row);
+    const frameMaxColExclusive = Math.max(maxColExclusive, maxColExclusive - offset.col);
+    const frameMaxRowExclusive = Math.max(maxRowExclusive, maxRowExclusive - offset.row);
+
+    return {
+      minX: originX + frameMinCol * usableWidth,
+      minY: originY + frameMinRow * usableHeight,
+      maxX: originX + frameMaxColExclusive * usableWidth,
+      maxY: originY + frameMaxRowExclusive * usableHeight,
+      cols: frameMaxColExclusive - frameMinCol,
+      rows: frameMaxRowExclusive - frameMinRow
+    };
+  }
+
   function applyMaterialPreset(preset: MaterialPreset): void {
     onboardingMaterialPreset = preset;
     const config = MATERIAL_PRESET_CONTENT[preset];
@@ -1209,6 +1258,8 @@
     optimizeSheetPacking = false;
     allowPackingRotation = true;
     includeAssemblyGuide = true;
+    sheetOffsetCol = 0;
+    sheetOffsetRow = 0;
     generatedSvgPreviewMode = 'combined';
     generatedSvgLayerSnapshot = ['cut', 'score', 'guide'];
     generatedSheetLayoutSnapshot = undefined;
@@ -1704,6 +1755,17 @@
       </div>
 
       {#if materialSizePreset !== 'none'}
+        <div class="grid material-grid">
+          <label>
+            <span class="field-title">Sheet offset columns</span>
+            <input type="number" step="1" bind:value={sheetOffsetCol} />
+          </label>
+          <label>
+            <span class="field-title">Sheet offset rows</span>
+            <input type="number" step="1" bind:value={sheetOffsetRow} />
+          </label>
+        </div>
+        <p class="muted">Move the net across the sheet grid in whole-sheet steps before splitting.</p>
         <label class="inline-check">
           <input type="checkbox" bind:checked={optimizeSheetPacking} />
           Optimize sheet packing (experimental)
