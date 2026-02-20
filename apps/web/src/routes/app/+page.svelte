@@ -42,6 +42,7 @@
     faces: string;
     preset: PolyhedronPreset;
     ringSides?: number;
+    johnsonId?: JohnsonSolidId;
   }
 
   interface PolyhedronFamilyOption {
@@ -261,6 +262,62 @@
       faces: '10 triangles',
       preset: 'regularBipyramid',
       ringSides: 5
+    },
+    {
+      key: 'j63-tridiminished-icosahedron',
+      label: 'Tridiminished Icosahedron',
+      faces: 'Johnson J63',
+      preset: 'johnson',
+      johnsonId: 'j63'
+    },
+    {
+      key: 'j67-biaugmented-truncated-cube',
+      label: 'Biaugmented Truncated Cube',
+      faces: 'Johnson J67',
+      preset: 'johnson',
+      johnsonId: 'j67'
+    },
+    {
+      key: 'j71-triaugmented-truncated-dodecahedron',
+      label: 'Triaugmented Truncated Dodecahedron',
+      faces: 'Johnson J71',
+      preset: 'johnson',
+      johnsonId: 'j71'
+    },
+    {
+      key: 'j74-metabigyrate-rhombicosidodecahedron',
+      label: 'Metabigyrate Rhombicosidodecahedron',
+      faces: 'Johnson J74',
+      preset: 'johnson',
+      johnsonId: 'j74'
+    },
+    {
+      key: 'j81-metabidiminished-rhombicosidodecahedron',
+      label: 'Metabidiminished Rhombicosidodecahedron',
+      faces: 'Johnson J81',
+      preset: 'johnson',
+      johnsonId: 'j81'
+    },
+    {
+      key: 'j84-snub-disphenoid',
+      label: 'Snub Disphenoid',
+      faces: 'Johnson J84',
+      preset: 'johnson',
+      johnsonId: 'j84'
+    },
+    {
+      key: 'j85-snub-square-antiprism',
+      label: 'Snub Square Antiprism',
+      faces: 'Johnson J85',
+      preset: 'johnson',
+      johnsonId: 'j85'
+    },
+    {
+      key: 'j90-disphenocingulum',
+      label: 'Disphenocingulum',
+      faces: 'Johnson J90',
+      preset: 'johnson',
+      johnsonId: 'j90'
     }
   ];
 
@@ -762,21 +819,25 @@
 
   function syncPolyhedronUiState(polyhedron?: Partial<PolyhedronDefinition>): void {
     const normalized = normalizePolyhedron(polyhedron);
-    if (normalized.preset === 'johnson') {
-      polyhedronInputMode = 'johnson';
-      selectedJohnsonId = normalized.johnsonId ?? 'j1';
-      return;
-    }
-
     const match = POLYHEDRON_CATALOG_OPTIONS.find(
       (option) =>
         option.preset === normalized.preset &&
-        (option.ringSides ?? undefined) === (normalized.ringSides ?? undefined)
+        (option.ringSides ?? undefined) === (normalized.ringSides ?? undefined) &&
+        (option.johnsonId ?? undefined) === (normalized.johnsonId ?? undefined)
     );
 
     if (match) {
       polyhedronInputMode = 'catalog';
       selectedCatalogKey = match.key;
+      if (normalized.preset === 'johnson') {
+        selectedJohnsonId = normalized.johnsonId ?? 'j1';
+      }
+      return;
+    }
+
+    if (normalized.preset === 'johnson') {
+      polyhedronInputMode = 'johnson';
+      selectedJohnsonId = normalized.johnsonId ?? 'j1';
       return;
     }
 
@@ -813,7 +874,8 @@
       polyhedron: normalizePolyhedron({
         ...shapeDefinition.polyhedron,
         preset: option.preset,
-        ringSides: option.ringSides
+        ringSides: option.ringSides,
+        johnsonId: option.johnsonId ?? normalizedPolyhedron.johnsonId
       })
     };
   }
