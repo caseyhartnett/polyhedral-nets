@@ -15,7 +15,7 @@ import {
   renderTemplateSvg,
   type ShapeDebugModel
 } from "./index.js";
-import { ShapeDefinitionSchema, type ShapeDefinition } from "@torrify/shared-types";
+import { ShapeDefinitionSchema, type ShapeDefinition } from "@polyhedral-nets/shared-types";
 
 const EDGE_TOLERANCE = 1e-4;
 const AREA_EPSILON = 1e-5;

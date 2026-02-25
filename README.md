@@ -1,4 +1,4 @@
-# PolyGoneWild (Pottery Pattern CAD)
+# Polyhedral Nets
 
 Browser-first CAD tool for generating slab-template geometry and export files (SVG/PDF/STL) for legacy polygonal forms and polyhedron templates.
 

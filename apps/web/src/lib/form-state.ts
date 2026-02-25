@@ -1,4 +1,4 @@
-import type { ExportFormat, SvgLayer } from '@torrify/shared-types';
+import type { ExportFormat, SvgLayer } from '@polyhedral-nets/shared-types';
 
 export function clampInt(value: number, min: number, max: number, fallback: number): number {
   const parsed = Math.floor(Number(value));

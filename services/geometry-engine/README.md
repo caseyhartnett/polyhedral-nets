@@ -1,6 +1,6 @@
 # Geometry Engine
 
-Deterministic geometry and export core for Pottery Pattern CAD.
+Deterministic geometry and export core for Polyhedral Nets.
 
 ## Current capabilities
 - v1 canonical geometry generation for:

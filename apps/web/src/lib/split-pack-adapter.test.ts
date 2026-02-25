@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { LayerPath } from '@torrify/shared-types';
+import type { LayerPath } from '@polyhedral-nets/shared-types';
 import {
   buildCutPolygonsFromLayerPaths,
   buildGridTileMeta,

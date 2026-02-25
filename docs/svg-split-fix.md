@@ -32,7 +32,7 @@ This verifies the specific `sheet-r1-c2` failure mode where small triangles were
 
 Command:
 ```bash
-npm run -w @torrify/web test
+npm run -w @polyhedral-nets/web test
 ```
 
 Result: all web tests passed.

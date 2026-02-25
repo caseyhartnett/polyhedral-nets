@@ -1,5 +1,5 @@
 {
-  "name": "@torrify/web",
+  "name": "@polyhedral-nets/web",
   "version": "0.1.0",
   "private": true,
   "license": "GPL-3.0-only",
@@ -23,8 +23,8 @@
     "vite": "^6.1.0"
   },
   "dependencies": {
-    "@torrify/geometry-engine": "0.1.0",
-    "@torrify/shared-types": "0.1.0",
+    "@polyhedral-nets/geometry-engine": "0.1.0",
+    "@polyhedral-nets/shared-types": "0.1.0",
     "jszip": "^3.10.1"
   }
 }

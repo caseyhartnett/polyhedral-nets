@@ -1,8 +1,8 @@
 {
-  "name": "torrify-next",
+  "name": "polyhedral-nets",
   "version": "0.1.0",
   "private": true,
-  "description": "AI-assisted 3D printable shape generation platform",
+  "description": "Browser-first CAD for printable polyhedral nets and template exports",
   "license": "GPL-3.0-only",
   "workspaces": [
     "apps/web",
@@ -10,16 +10,16 @@
     "services/geometry-engine"
   ],
   "scripts": {
-    "build": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web build",
-    "examples:prepare": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build",
+    "build": "npm run -w @polyhedral-nets/shared-types build && npm run -w @polyhedral-nets/geometry-engine build && npm run -w @polyhedral-nets/web build",
+    "examples:prepare": "npm run -w @polyhedral-nets/shared-types build && npm run -w @polyhedral-nets/geometry-engine build",
     "examples:gallery": "npm run examples:prepare && node scripts/generate-shape-gallery.mjs",
     "examples:readme": "npm run examples:prepare && node scripts/generate-readme-examples.mjs",
     "examples:all": "npm run examples:prepare && node scripts/generate-readme-examples.mjs && node scripts/generate-shape-gallery.mjs",
-    "dev": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run -w @torrify/web dev",
-    "dev:web": "npm run -w @torrify/web dev",
-    "lint": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run --ws lint",
+    "dev": "npm run -w @polyhedral-nets/shared-types build && npm run -w @polyhedral-nets/geometry-engine build && npm run -w @polyhedral-nets/web dev",
+    "dev:web": "npm run -w @polyhedral-nets/web dev",
+    "lint": "npm run -w @polyhedral-nets/shared-types build && npm run -w @polyhedral-nets/geometry-engine build && npm run --ws lint",
     "test": "npm run --ws test",
-    "typecheck": "npm run -w @torrify/shared-types build && npm run -w @torrify/geometry-engine build && npm run --ws typecheck"
+    "typecheck": "npm run -w @polyhedral-nets/shared-types build && npm run -w @polyhedral-nets/geometry-engine build && npm run --ws typecheck"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",

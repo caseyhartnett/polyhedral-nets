@@ -5,8 +5,8 @@ import type {
   PolygonWithHoles as SplitPackPolygonWithHoles,
   Sheet as SplitPackSheet,
   TemplateGeometry as SplitPackTemplateGeometry
-} from '@torrify/geometry-engine';
-import type { LayerPath, Point2, SvgLayer } from '@torrify/shared-types';
+} from '@polyhedral-nets/geometry-engine';
+import type { LayerPath, Point2, SvgLayer } from '@polyhedral-nets/shared-types';
 
 const EPSILON = 1e-9;
 export const SPLIT_PACK_SCALE_DEFAULT = 10_000;

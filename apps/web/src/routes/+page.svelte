@@ -1,5 +1,5 @@
 <svelte:head>
-  <title>OpenPottery Template Maker | Free Geometric Template Maker</title>
+  <title>Polyhedral Nets | Free Geometric Template Maker</title>
   <meta
     name="description"
     content="Create precise 3D forms and printable templates for pottery, papercraft, and design. Free, browser-based, no CAD required."

@@ -7,7 +7,7 @@ import type {
   PolyhedronPreset,
   ShapeDefinition,
   SvgLayer
-} from "@torrify/shared-types";
+} from "@polyhedral-nets/shared-types";
 import { JOHNSON_MESH_DATA } from "./johnson-data.js";
 
 const TWO_PI = Math.PI * 2;

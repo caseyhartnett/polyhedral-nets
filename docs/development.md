@@ -30,9 +30,9 @@ npm run test
 ## Web package checks
 
 ```bash
-npm run -w @torrify/web typecheck
-npm run -w @torrify/web test
-npm run -w @torrify/web build
+npm run -w @polyhedral-nets/web typecheck
+npm run -w @polyhedral-nets/web test
+npm run -w @polyhedral-nets/web build
 ```
 
 ## Workspace map

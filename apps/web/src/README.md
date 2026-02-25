@@ -1,6 +1,6 @@
 # Web App
 
-SvelteKit UI for Pottery Pattern CAD.
+SvelteKit UI for Polyhedral Nets.
 
 Current features:
 - parametric shape builder (legacy + polyhedron)

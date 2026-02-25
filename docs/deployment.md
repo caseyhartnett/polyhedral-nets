@@ -64,11 +64,11 @@ In Pages project:
 - `Custom domains` -> `Set up a custom domain`
 - Add your domain/subdomain and follow Cloudflare DNS prompts
 
-If you are using this tool alongside another site (for example, `openpottery.com`):
+If you are using this tool alongside another site (for example, `polyhedralnets.com`):
 
-- Attach `tool.openpottery.com` in this **tool's Pages project** under `Custom domains`
-- Keep `openpottery.com` and `www.openpottery.com` attached to the separate **OpenPottery Pages project**
-- Do not attach `tool.openpottery.com` to the OpenPottery project
+- Attach `tool.polyhedralnets.com` in this **tool's Pages project** under `Custom domains`
+- Keep `polyhedralnets.com` and `www.polyhedralnets.com` attached to the separate main Pages project
+- Do not attach `tool.polyhedralnets.com` to the main site project
 
 ## Optional: Cloudflare Pages (Direct Upload / CLI)
 

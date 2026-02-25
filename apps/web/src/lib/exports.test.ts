@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { ShapeDefinitionSchema, type ShapeDefinition } from '@torrify/shared-types';
+import { ShapeDefinitionSchema, type ShapeDefinition } from '@polyhedral-nets/shared-types';
 import {
   availableArtifactFormats,
   artifactFileName,

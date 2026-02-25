@@ -6,7 +6,7 @@ import {
   renderTemplateSvg,
   scaleToInt,
   splitAndPack
-} from '@torrify/geometry-engine';
+} from '@polyhedral-nets/geometry-engine';
 import type {
   CanonicalGeometry,
   ExportFormat,
@@ -15,7 +15,7 @@ import type {
   ShapeDefinition,
   SvgLayer,
   Units
-} from '@torrify/shared-types';
+} from '@polyhedral-nets/shared-types';
 import {
   SPLIT_PACK_SCALE_DEFAULT,
   buildAssignmentsFromPackedSheets,

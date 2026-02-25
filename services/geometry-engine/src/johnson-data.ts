@@ -1,4 +1,4 @@
-import type { JohnsonSolidId } from "@torrify/shared-types";
+import type { JohnsonSolidId } from "@polyhedral-nets/shared-types";
 
 export interface JohnsonMeshData {
   vertices: Array<{ x: number; y: number; z: number }>;

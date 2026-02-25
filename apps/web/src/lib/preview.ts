@@ -2,8 +2,8 @@ import {
   buildCanonicalGeometry,
   buildShapeDebugModel,
   type WireframeCamera
-} from '@torrify/geometry-engine';
-import type { Point2, ShapeDefinition, Units } from '@torrify/shared-types';
+} from '@polyhedral-nets/geometry-engine';
+import type { Point2, ShapeDefinition, Units } from '@polyhedral-nets/shared-types';
 import { clampInt } from './form-state';
 
 export interface PreviewShapeDefinition {

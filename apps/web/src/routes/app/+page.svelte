@@ -16,7 +16,7 @@
     MaterialSizePreset,
     SvgPerforationOptions
   } from '$lib/exports';
-  import { renderTemplateSvg } from '@torrify/geometry-engine';
+  import { renderTemplateSvg } from '@polyhedral-nets/geometry-engine';
   import { clampInt, toggleExportFormat, toggleSvgLayerSelection } from '$lib/form-state';
   import type {
     CanonicalGeometry,
@@ -27,8 +27,8 @@
     ShapeDefinition,
     SvgLayer,
     Units
-  } from '@torrify/shared-types';
-  import { JOHNSON_SOLID_CATALOG } from '@torrify/shared-types';
+  } from '@polyhedral-nets/shared-types';
+  import { JOHNSON_SOLID_CATALOG } from '@polyhedral-nets/shared-types';
 
   type ShapeBuilderMode = 'legacy' | 'polyhedron';
   type PolyhedronInputMode = 'catalog' | 'johnson' | 'family';
@@ -1461,7 +1461,7 @@
 </script>
 
 <svelte:head>
-  <title>OpenPottery Template Maker</title>
+  <title>Polyhedral Nets</title>
 </svelte:head>
 
 <main>
@@ -1472,7 +1472,7 @@
   >
     <div class="header-row">
       <div>
-        <h1>OpenPottery Template Maker</h1>
+        <h1>Polyhedral Nets</h1>
         <p class="sub">Guided-first for non-technical users. Session state clears on refresh.</p>
       </div>
       <div class="header-actions">

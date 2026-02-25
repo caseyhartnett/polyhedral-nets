@@ -13,7 +13,7 @@ function formatNum(value) {
 
 function toFileContent(entries) {
   const lines = [];
-  lines.push('import type { JohnsonSolidId } from "@torrify/shared-types";');
+  lines.push('import type { JohnsonSolidId } from "@polyhedral-nets/shared-types";');
   lines.push("");
   lines.push("export interface JohnsonMeshData {");
   lines.push("  vertices: Array<{ x: number; y: number; z: number }>;");
